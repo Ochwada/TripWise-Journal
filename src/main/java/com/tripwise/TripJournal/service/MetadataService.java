@@ -1,6 +1,7 @@
 package com.tripwise.TripJournal.service;
 
 import com.tripwise.TripJournal.dto.MetadataDTO;
+import com.tripwise.TripJournal.service.client.WeatherClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

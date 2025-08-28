@@ -114,7 +114,7 @@ Service is  available at:
 
 ## Integration Map (Travel-Themed Microservices - Tripwise)
 
-1.  TripHub  → Gateway (entry point)
+1. TripHub  → Gateway (entry point)
 2. TripPass  → Auth (JWT/OAuth2)
 3. TripProfile  → User profiles & preferences 
 4. TripPlanner  → Itinerary, packing, weather snapshots 

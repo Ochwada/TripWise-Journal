@@ -4,6 +4,9 @@ import com.tripwise.TripJournal.model.Journal;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
+
+import java.util.Optional;
 
 /**
  * ================================================================
@@ -16,28 +19,48 @@ import org.springframework.data.mongodb.repository.MongoRepository;
  * ================================================================
  */
 public interface JournalRepository extends MongoRepository<Journal, String> {
-    /**
-     * Finds a paginated list of journal entries for a given user, where the activity title matches a case-insensitive
-     * regular expression.
-     *
-     * @param userId     the ID of the user who owns the journals
-     * @param titleRegex the regular expression to match against activity titles (case-insensitive)
-     * @param pageable   pagination information
-     * @return a {@link Page} of {@link Journal} entries that match the query
-     */
-    Page<Journal> findByUserIdAndTitleRegexIgnoreCase(
-            String userId,
-            String titleRegex,
-            Pageable pageable
-    );
-
 
     /**
-     * Finds a paginated list of journal entries for a specific user.
+     * Retrieves a page of journals owned by the given user.
      *
-     * @param userId   the ID of the user who owns the journals
-     * @param pageable pagination information
-     * @return a {@link Page} of {@link Journal} entries belonging to the user
+     * @param userId   the owner user ID
+     * @param pageable pagination information (page number, size, sort)
+     * @return a page of {@link Journal} documents
      */
     Page<Journal> findByUserId(String userId, Pageable pageable);
+
+
+    /**
+     * Retrieves a single journal by its ID, scoped to a specific user.
+     *
+     * @param id     the journal ID
+     * @param userId the expected owner user ID
+     * @return an {@link Optional} containing the journal if found and owned by the user; empty otherwise
+     */
+    Optional<Journal> findByIdAndUserId(String id, String userId);
+
+
+    /**
+     * Case-insensitive title search for journals belonging to a user.
+     * <p>
+     * Uses a MongoDB regex query with the {@code i} option for case-insensitive matching. Pass an anchored pattern
+     * (e.g., {@code ^hike}) to search from the start of the title.
+     *
+     * @param userId     the owner user ID
+     * @param titleRegex a regular expression to match against {@code title}
+     * @param pageable   pagination information
+     * @return a page of matching {@link Journal} documents
+     */
+    @Query(value = "{ 'userId': ?0, 'title': { $regex: ?1, $options: 'i' } }")
+    Page<Journal> searchByUserAndTitle(String userId, String titleRegex, Pageable pageable);
+
+
+    /**
+     * Deletes a journal by ID if (and only if) it belongs to the given user.
+     *
+     * @param id     the journal ID
+     * @param userId the owner user ID
+     */
+    void deleteByIdAndUserId(String id, String userId);
+
 }

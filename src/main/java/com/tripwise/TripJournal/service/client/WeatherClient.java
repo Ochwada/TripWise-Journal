@@ -1,9 +1,8 @@
-package com.tripwise.TripJournal.service;
+package com.tripwise.TripJournal.service.client;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.WebClient;
-import lombok.*;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
