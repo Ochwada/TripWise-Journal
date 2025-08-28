@@ -4,13 +4,17 @@
 ---
 
 ### 🔗 [TripWise-Architecture 🍀 Overview Repository ](https://github.com/Ochwada/TripWise-Architecture)
+
 Microservices ⬇️ part of **TripWise System**
 
 
-#### 🖇️ Microservice 1: TripHub - [ Gateway  Service]( )
-#### 🖇️ Microservice 2: TripPass - [ Authentication Service](https://github.com/Ochwada/TripWise-Pass)
+#### 🖇️ Microservice 0: TripHub - [ Gateway  Service]( )
+#### 🖇️ Microservice 1: TripPass - [ Authentication Service](https://github.com/Ochwada/TripWise-Pass)
+#### 🖇️ Microservice 2: TripProfile - [ User Profile Service ](https://github.com/reyhanovelek/TripProfile-Service)
 #### 🖇️ Microservice 3: TripPlanner - [ Planner Service](https://github.com/Jind19/TripWise_Planner)
 #### 🖇️ Microservice 4: TripJournal - [ Journal Service](https://github.com/Ochwada/TripWise-Journal)
+#### 🖇️ Microservice 5: TripWeather  - [ Weather Service](https://github.com/OrnellaDelVicario/tripwise_tripweather)
+#### 🖇️ Microservice 6: TripMedia - [ Media Service](https://github.com/Ochwada/TripWise-Media)
 
 ---
 
