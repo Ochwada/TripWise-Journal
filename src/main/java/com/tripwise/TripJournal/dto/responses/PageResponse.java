@@ -1,4 +1,4 @@
-package com.tripwise.TripJournal.dto.responces;
+package com.tripwise.TripJournal.dto.responses;
 
 import lombok.*;
 
@@ -6,7 +6,7 @@ import java.util.*;
 
 /**
  * ================================================================
- * Package Name: com.tripwise.TripJournal.dto.responces
+ * Package Name: com.tripwise.TripJournal.dto.responses
  * Author      : Ochwada-GMK
  * Project Name: tripjournal
  * Date        : Thursday,  28.Aug.2025 | 15:04

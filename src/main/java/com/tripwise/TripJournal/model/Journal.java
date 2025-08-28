@@ -22,6 +22,7 @@ import java.time.Instant;
 @AllArgsConstructor
 @NoArgsConstructor
 @Data
+@Builder
 public class Journal {
     /**
      * Unique identifier for the journal entry.

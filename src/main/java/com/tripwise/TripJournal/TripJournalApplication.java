@@ -18,7 +18,7 @@ public class TripJournalApplication {
                 "PORT", "SPRING_APPLICATION_NAME",
                 "SPRING_DATA_MONGODB_URI", "OAUTH2_ISSUER_URI",
                 "JWT_AUDIENCE", "JWT_ALG", "MEDIA_BASE_URL",
-                "LOG_ROOT_LEVEL", "LOG_APP_LEVEL"
+                "LOG_ROOT_LEVEL", "LOG_APP_LEVEL", "OPENWEATHER_API_KEY"
         };
 
         for (String key : envVars) {

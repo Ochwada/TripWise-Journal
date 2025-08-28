@@ -1,5 +1,9 @@
 server:
   port: ${PORT:9094}
+  servlet:
+    context-path: /journal
+app:
+  base-url: https://tripwise:9094/journal
 
 spring:
   application:
@@ -9,29 +13,20 @@ spring:
       uri: ${SPRING_DATA_MONGODB_URI}
   jackson:
     serialization:
-      WRITE_DATES_AS_TIMESTAMPS: false
+      write-dates-as-timestamps: false
   security:
     oauth2:
       resourceserver:
         jwt:
-          # If using an OIDC provider (Google/Auth0/Keycloak), keep issuer-uri.
           issuer-uri: ${OAUTH2_ISSUER_URI:https://accounts.google.com}
-
-          # The next three are optional if issuer-uri exposes JWKS; keep if you validate custom claims or static keys.
-          # (Audience isn't read by Spring from YAML by default—use it in a custom validator bean if needed.)
-          # Provided here for convenience / custom wiring:
-          # audience: ${JWT_AUDIENCE:tripwise}
-          # algorithm: ${JWT_ALG:RS256}
-          # publicKeyPem: ${JWT_PUBLIC_KEY_PEM:}
 
 logging:
   level:
     root: ${LOG_ROOT_LEVEL:INFO}
-    com.tripwise.tripjournal: ${LOG_APP_LEVEL:INFO}
+    com.triphub.tripjournal: ${LOG_APP_LEVEL:INFO}
 
-app:
-  # Public base of THIS journal service (used for building absolute links)
-  base-url: ${JOURNALS_BASE_URL}
-  # Outbound dependency: Media service (if this service fetches/links media)
-  media:
-    base-url: ${MEDIA_BASE_URL}
+# --- Weather config (top-level) ---
+openweather:
+  apiKey: ${OPENWEATHER_API_KEY}
+  baseUrl: https://api.openweathermap.org
+  units: metric

@@ -1,5 +1,6 @@
-package com.tripwise.TripJournal.dto.responces;
+package com.tripwise.TripJournal.dto.responses;
 
+import com.tripwise.TripJournal.dto.MetadataDTO;
 import lombok.*;
 
 import java.time.Instant;
@@ -8,7 +9,7 @@ import java.util.Map;
 
 /**
  * ================================================================
- * Package Name: com.tripwise.TripJournal.dto.responces
+ * Package Name: com.tripwise.TripJournal.dto.responses
  * Author      : Ochwada-GMK
  * Project Name: tripjournal
  * Date        : Thursday,  28.Aug.2025 | 13:41
@@ -24,21 +25,15 @@ public class JournalResponse {
     private String id;
 
     /**
-     * The title of the activity recorded in this journal entry.
-     * Example: {@code "Hiking in Aberdare Forest"}
+     * The identifier of the user who created this journal entry.
      */
-    private String title;
-
-    /**
-     * A detailed description of the activity.
-     * Example: {@code "A full-day hike exploring waterfalls and wildlife."}
-     */
-    private String description;
+    private String userId;
 
     /**
      * The identifier of the itinerary this journal entry belongs to.
      */
     private String itineraryId;
+
 
     /**
      * The city where the activity took place.
@@ -51,10 +46,25 @@ public class JournalResponse {
     private String country;
 
     /**
+     * The title of the activity recorded in this journal entry.
+     * Example: {@code "Hiking in Aberdare Forest"}
+     */
+    private String title;
+
+    /**
+     * A detailed description of the activity.
+     * Example: {@code "A full-day hike exploring waterfalls and wildlife."}
+     */
+    private String description;
+
+
+    /**
      * A list of tags associated with this journal entry for easier categorization or search.
      * Example: {@code ["hiking", "nature", "adventure"]}
      */
     private List<String> tags;
+
+    private List<String> mediaIds; // or expand to Media summary DTOs
 
     /**
      * Arbitrary key-value pairs that provide additional context or details about this journal entry.
@@ -62,7 +72,7 @@ public class JournalResponse {
      * -This field is flexible and can store extra information such as weather, mood, GPS coordinates, or any custom
      * metadata provided by the user or system.
      */
-    private Map<String, Object> metadata;
+    private MetadataDTO metadata;  // read-only, auto-fetched
 
     /**
      * The timestamp when this journal entry was created.
