@@ -42,22 +42,37 @@ securely with TripPass (auth service) for JWT-based access.
 ##  Project Structure
 ```yaml
 tripjournal/
-│
-├── src/
-│   ├── main/
-│   │   ├── java/com/tripwise/journal/
-│   │   │   ├── config/             # Security & DB configs
-│   │   │   ├── controller/         # REST endpoints
-│   │   │   ├── service/            # Business logic
-│   │   │   ├── repository/         # MongoDB access
-│   │   │   └── TripJournalApplication.java
-│   │   └── resources/
-│   │       ├── application.yml     # Configurations
-│   │       └── templates/          # (optional) views
-│
-├── .env                            # DB + JWT secrets
-├── README.md
-├── pom.xml
+├─ pom.xml
+├─ src/main/java/com/triphub/TripJournal/
+│ ├─ TripJournalApplication.java
+│ ├─ config/
+│ │ ├─ SecurityConfig.java
+│ │ ├─ MongoIndexConfig.java
+│ │ └─ RequestContext.java
+│ ├─ security/
+│ │ ├─ JwtAuthenticationFilter.java
+│ │ ├─ JwtVerifier.java
+│ │ └─ JwtPrincipal.java
+│ ├─ controller/
+│ │ ├─ JournalController.java
+│ │ └─ GlobalExceptionHandler.java
+│ ├─ service/
+│ │ └─ JournalService.java
+│ ├─ repository/
+│ │ └─ JournalRepository.java
+│ ├─ domain/
+│ │ └─ Journal.java
+│ ├─ dto/
+│ │ ├─ CreateJournalRequest.java
+│ │ ├─ UpdateJournalRequest.java
+│ │ ├─ SearchJournalRequest.java
+│ │ ├─ JournalResponse.java
+│ │ ├─ PageResponse.java
+│ │ └─ ErrorResponse.java
+│ └─ mapper/
+│ └─ JournalMapper.java
+└─ src/main/resources/
+└─ application.yml
 ```
 
 ## Environment Configurations
