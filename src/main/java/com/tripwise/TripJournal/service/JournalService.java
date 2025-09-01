@@ -1,11 +1,13 @@
 package com.tripwise.TripJournal.service;
 
 import com.tripwise.TripJournal.dto.requests.CreateJournalRequest;
+import com.tripwise.TripJournal.dto.requests.UpdateJournalRequest;
 import com.tripwise.TripJournal.model.Journal;
 import com.tripwise.TripJournal.repository.JournalRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.Map;
@@ -22,6 +24,7 @@ import java.util.Objects;
  * Provides CRUD operations and automatically enriches entries with GPS + weather metadata.
  * ================================================================
  */
+@Service
 @RequiredArgsConstructor
 public class JournalService {
     private final JournalRepository repository;
@@ -71,7 +74,7 @@ public class JournalService {
      * Full update (PUT semantics). If city/country changed, auto metadata is re-built.
      * User-provided metadata still wins on key conflicts.
      */
-    public Journal updateJournal(String userId, String id, CreateJournalRequest req) {
+    public Journal updateJournal(String userId, String id, UpdateJournalRequest req) {
         Journal existing = getJournal(userId, id);
 
         boolean locationChanged =

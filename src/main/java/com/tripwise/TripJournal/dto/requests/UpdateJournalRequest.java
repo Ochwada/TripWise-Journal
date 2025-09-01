@@ -47,6 +47,10 @@ public class UpdateJournalRequest {
             example = "[\"media-001\",\"media-002\"]")
     private List<String> mediaIds;
 
+    public Map<String, Object> getMetadata() {
+        return Map.of();
+    }
+
     // Optional: include a version for optimistic locking if you store one in Journal.
     // private Long version;
 }
