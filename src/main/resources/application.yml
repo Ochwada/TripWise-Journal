@@ -18,7 +18,10 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${OAUTH2_ISSUER_URI:https://accounts.google.com}
+          issuer-uri: http://trippass:9091
+        #issuer-uri: ${OAUTH2_ISSUER_URI:https://accounts.google.com}
+        #OR, if you don’t expose issuer metadata, use jwk-set-uri:
+        # spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://trippass:9091/oauth2/jwks
 
 logging:
   level:

@@ -4,15 +4,15 @@ import com.tripwise.TripJournal.dto.requests.CreateJournalRequest;
 import com.tripwise.TripJournal.dto.requests.UpdateJournalRequest;
 import com.tripwise.TripJournal.model.Journal;
 import com.tripwise.TripJournal.repository.JournalRepository;
-import lombok.RequiredArgsConstructor;
+import lombok.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Objects;
+import java.util.*;
+
 
 /**
  * ================================================================
@@ -29,6 +29,7 @@ import java.util.Objects;
 public class JournalService {
     private final JournalRepository repository;
     private final JournalEnricher enricher;
+    private final RestTemplate restTemplate;
 
     /** List journals for the authenticated user (paginated). */
     public Page<Journal> findAllJournals(String userId, Pageable pageable) {

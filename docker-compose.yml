@@ -1,6 +1,30 @@
+version: "3.9"
+
 services:
-  journal:
-    ports: ["9094:9094"]
-    networks:
-      default:
-        aliases: [tripwise]
+  mongo:
+    image: mongo:7
+    container_name: mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"  # optional; remove if only internal access
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  tripjournal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tripwise/tripjournal:latest
+    container_name: tripjournal
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    env_file: .env
+    ports:
+      - "9094:9094"

@@ -1,0 +1,15 @@
+# Safe .dockerignore for a Spring Boot/Maven service
+target/
+.git/
+.gitignore
+.idea/
+*.iml
+README.md
+
+
+*
+!Dockerfile
+!pom.xml
+!src/**
+!mvnw
+!mvnw.cmd
