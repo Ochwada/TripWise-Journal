@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Create Journal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body { font-family: system-ui,-apple-system,Segoe UI,Roboto; margin:2rem auto; max-width: 900px; padding:0 1rem; }
+        a { text-decoration:none; }
+        label { font-weight:600; display:block; margin:.6rem 0 .25rem; }
+        input, textarea { width:100%; padding:.6rem .7rem; border:1px solid #e5e7eb; border-radius:8px; }
+        textarea { min-height: 120px; }
+        button { margin-top:1rem; padding:.7rem 1rem; border:0; border-radius:9px; background:#0f62fe; color:#fff; font-weight:700; cursor:pointer; }
+        pre { background:#0b1020; color:#d8e5ff; padding:1rem; border-radius:8px; overflow:auto; }
+        .muted { color:#666; }
+    </style>
+</head>
+<body>
+<p><a href="/static">&larr; Back</a></p>
+<h1>Create Journal <small class="muted">POST /journals</small></h1>
+
+<label for="token">Bearer token</label>
+<input id="token" type="text" placeholder="eyJhbGciOi..." />
+
+<label for="title">Title *</label>
+<input id="title" type="text" maxlength="200" placeholder="Hiking in Aberdare Forest" />
+
+<label for="description">Description</label>
+<textarea id="description" placeholder="A full-day hike exploring waterfalls and wildlife."></textarea>
+
+<label for="itineraryId">Itinerary ID</label>
+<input id="itineraryId" type="text" placeholder="trip-123" />
+
+<div style="display:grid; gap:.75rem; grid-template-columns:1fr 1fr;">
+    <div>
+        <label for="city">City</label>
+        <input id="city" type="text" placeholder="Nairobi" />
+    </div>
+    <div>
+        <label for="country">Country</label>
+        <input id="country" type="text" placeholder="Kenya" />
+    </div>
+</div>
+
+<label for="tags">Tags (comma-separated)</label>
+<input id="tags" type="text" placeholder="hiking,nature,adventure" />
+
+<label for="metadata">Metadata (JSON)</label>
+<textarea id="metadata" placeholder='{"mood":"excited","gps":{"lat":-1.2864,"lng":36.8172}}'></textarea>
+
+<label for="mediaIds">Media IDs (comma-separated)</label>
+<input id="mediaIds" type="text" placeholder="media-001,media-002" />
+
+<button id="submit">Create</button>
+
+<h2>Response</h2>
+<pre id="out"></pre>
+
+<script>
+    const API = 'http://localhost:9094';
+    const $ = id => document.getElementById(id);
+    const show = v => $('out').textContent = typeof v === 'string' ? v : JSON.stringify(v, null, 2);
+
+    $('submit').addEventListener('click', async () => {
+        const token = $('token').value.trim();
+        const payload = {
+            title: $('title').value.trim(),
+            description: $('description').value.trim() || null,
+            itineraryId: $('itineraryId').value.trim() || null,
+            city: $('city').value.trim() || null,
+            country: $('country').value.trim() || null,
+            tags: ($('tags').value || '').split(',').map(s=>s.trim()).filter(Boolean),
+            metadata: parseJsonOrNull($('metadata').value),
+            mediaIds: ($('mediaIds').value || '').split(',').map(s=>s.trim()).filter(Boolean)
+        };
+        try {
+            const res = await fetch(API + '/journals', {
+                method:'POST',
+                headers: {'Content-Type':'application/json', ...(token && {'Authorization':'Bearer '+token})},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.text(); let parsed; try{ parsed = JSON.parse(data)}catch{parsed = data}
+            show(res.ok ? parsed : ('Error '+res.status+':\n'+data));
+        } catch (e) { show(String(e)); }
+    });
+
+    function parseJsonOrNull(raw){ if(!raw.trim()) return null; try{ return JSON.parse(raw);}catch(e){ alert('Invalid JSON: '+e.message); throw e; } }
+</script>
+</body>
+</html>

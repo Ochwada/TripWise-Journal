@@ -1,5 +1,6 @@
 package com.tripwise.TripJournal.config;
 
+import org.springframework.boot.autoconfigure.security.oauth2.resource.OAuth2ResourceServerProperties;
 import org.springframework.context.annotation.*;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.core.env.Environment;
@@ -27,7 +28,8 @@ import java.util.*;
 public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                   JwtDecoder jwtDecoder) throws Exception {
+                                                   JwtDecoder jwtDecoder,
+                                                   JwtAuthenticationConverter jwtAuthConverter) throws Exception {
         http
 
                 // Stateless API with bearer tokens
@@ -35,26 +37,32 @@ public class SecurityConfig {
                 .cors(cors -> {
                 }) // use a CorsConfigurationSource bean if needed
                 .sessionManagement(sm -> {
-                    sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+                    sm
+                            .sessionCreationPolicy(SessionCreationPolicy.STATELESS);
                 })
-
 
                 // AuthZ rules (Authorization)
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
-                                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                                .anyRequest()
-                                .authenticated()
+                                .requestMatchers(
+                                        "/", "/journal/**", "/**/*.css",
+                                        "/**/*.js", "/actuator/**").permitAll()
+                                .anyRequest().authenticated()
 
                         // Resource server (JWT)
-                ).oauth2ResourceServer(o -> o
-                        .jwt(jwtConfigurer -> {
-                            // Default JWT decoder is based on spring.security.oauth2.resourceserver.jwt.issuer-uri
-                            // You can add a custom converter/decoder here if needed
-                        })
+                ).oauth2ResourceServer(oauth -> oauth
+                        // Default JWT decoder is based on spring.security.oauth2.resourceserver.jwt.issuer-uri
+                        // You can add a custom converter/decoder here if needed
+                        .jwt(
+                                jwt -> jwt.decoder(jwtDecoder)
+                                        .jwtAuthenticationConverter(jwtAuthConverter))
                 );
+
+
         // Finalise and return the filter chain
         return http.build(); // returns SecurityFilterChain object and registers it with Spring.
-    };
+    }
+
+    ;
 
     /**
      * Map scopes -> authorities and prefer principal = "userId".
@@ -62,15 +70,15 @@ public class SecurityConfig {
      */
     @Bean
     public JwtAuthenticationConverter jwtAuthConverter() {
-        JwtGrantedAuthoritiesConverter scopeConverter = new JwtGrantedAuthoritiesConverter();
-        scopeConverter.setAuthorityPrefix("ROLE_");
-        scopeConverter.setAuthoritiesClaimName("authorities");
 
-        JwtAuthenticationConverter jwtConverter = new JwtAuthenticationConverter();
-        jwtConverter.setJwtGrantedAuthoritiesConverter(scopeConverter);
-        jwtConverter.setPrincipalClaimName("userId");
+        var scopeConv = new JwtGrantedAuthoritiesConverter();
+        scopeConv.setAuthorityPrefix("ROLE_");
+        scopeConv.setAuthoritiesClaimName("authorities");
 
-        return jwtConverter;
+        var conv = new JwtAuthenticationConverter();
+        conv.setJwtGrantedAuthoritiesConverter(scopeConv);
+        conv.setPrincipalClaimName("userId");
+        return conv;
     }
 
     /**
@@ -78,67 +86,75 @@ public class SecurityConfig {
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:3000"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*")); // includes Authorization
-        config.setAllowCredentials(true);
+        var cfg = new CorsConfiguration();
+        cfg.setAllowedOrigins(List.of("http://localhost:3000"));
+        cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        cfg.setAllowedHeaders(List.of("*"));
+        cfg.setAllowCredentials(true);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
+        var src = new UrlBasedCorsConfigurationSource();
+        src.registerCorsConfiguration("/**", cfg);
+        return src;
     }
 
 
     /**
-     * Issuer-based JwtDecoder with:
-     *  - Default issuer validation (required)
-     *  - Optional audience validation (if tripjournal.security.audience is set)
-     *  - Claim shaping: ensure "userId" exists (fallback to "sub")
-     *
-     * Requires:
-     *   spring.security.oauth2.resourceserver.jwt.issuer-uri=https://<issuer>/
+     * Build JwtDecoder from JWK Set URI if provided; otherwise fall back to issuer.
+     * Also adds optional audience validation and ensures a "userId" claim (fallback to "sub").
+     * <p>
+     * Supported properties:
+     * - spring.security.oauth2.resourceserver.jwt.jwk-set-uri
+     * - spring.security.oauth2.resourceserver.jwt.issuer-uri   (fallback)
+     * - tripjournal.security.audience                          (optional)
      */
     @Bean
-    public JwtDecoder jwtDecoder(
-            org.springframework.boot.autoconfigure.security.oauth2.resource.OAuth2ResourceServerProperties props,
-            Environment env
-    ) {
-        String issuer = props.getJwt().getIssuerUri();
+    public JwtDecoder jwtDecoder(OAuth2ResourceServerProperties props, Environment env) {
+        String jwkSetUri = props.getJwt().getJwkSetUri();
+        String issuerUri = props.getJwt().getIssuerUri();
 
-        // Spring returns a NimbusJwtDecoder here; cast to customize
-        NimbusJwtDecoder decoder = (NimbusJwtDecoder) JwtDecoders.fromIssuerLocation(issuer);
+        NimbusJwtDecoder decoder;
+
+        if (jwkSetUri != null && !jwkSetUri.isBlank()) {
+            //  Build directly from JWKS (no discovery)
+            decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+        } else if (issuerUri != null && !issuerUri.isBlank()) {
+            // Fallback to issuer (requires OIDC discovery available)
+            decoder = (NimbusJwtDecoder) JwtDecoders.fromIssuerLocation(issuerUri);
+        } else {
+            throw new IllegalStateException("Configure either jwk-set-uri or issuer-uri for the resource server.");
+        }
 
         // ----- Validators -----
-        OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuer);
+        OAuth2TokenValidator<Jwt> base = JwtValidators.createDefault();
+
+        // If you still want issuer claim validation with JWKS, read it from env and add validator.
+        String expectedIssuer = env.getProperty("spring.security.oauth2.resourceserver.jwt.issuer-uri");
+        if (expectedIssuer != null && !expectedIssuer.isBlank()) {
+            base = new DelegatingOAuth2TokenValidator<>(base, JwtValidators.createDefaultWithIssuer(expectedIssuer));
+        }
 
         String audience = env.getProperty("tripjournal.security.audience");
         if (audience != null && !audience.isBlank()) {
-            OAuth2TokenValidator<Jwt> audienceValidator = token -> {
+            OAuth2TokenValidator<Jwt> audV = token -> {
                 List<String> aud = token.getAudience();
                 return (aud != null && aud.contains(audience))
                         ? OAuth2TokenValidatorResult.success()
-                        : OAuth2TokenValidatorResult.failure(
-                        new OAuth2Error("invalid_token", "Invalid audience", null)
-                );
+                        : OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Invalid audience", null));
             };
-            decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(withIssuer, audienceValidator));
-        } else {
-            decoder.setJwtValidator(withIssuer);
+            base = new DelegatingOAuth2TokenValidator<>(base, audV);
         }
+        decoder.setJwtValidator(base);
 
         // ----- Claim shaping -----
-        // Guarantee a "userId" claim (used as principal) by copying from "sub" if absent.
         Converter<Map<String, Object>, Map<String, Object>> defaults =
-                org.springframework.security.oauth2.jwt.MappedJwtClaimSetConverter.withDefaults(Collections.emptyMap());
+                MappedJwtClaimSetConverter.withDefaults(Collections.emptyMap());
 
-        decoder.setClaimSetConverter(claimsIn -> {
-            Map<String, Object> claims = new HashMap<>(Objects.requireNonNull(defaults.convert(claimsIn)));
+        decoder.setClaimSetConverter(in -> {
+            Map<String, Object> claims = new HashMap<>(Objects.requireNonNull(defaults.convert(in)));
             claims.putIfAbsent("userId", claims.get("sub"));
             return claims;
         });
 
         return decoder;
     }
-
 }

@@ -28,20 +28,24 @@ public class RestTemplateConfig {
      */
     @Bean
     public RestTemplate restTemplate() {
-
+// Create the RestTemplate instance used across the app
         RestTemplate restTemplate = new RestTemplate();
 
         // Interceptor to propagate Authorization: Bearer <token>
         ClientHttpRequestInterceptor interceptor = (req, body, exec) -> {
+            // Grab the current Authentication from Spring Security context
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-
+            // If the user is authenticated with a Jwt, forward it as Bearer token
             if (auth != null && auth.getPrincipal() instanceof Jwt jwt) {
+                // Equivalent to: req.getHeaders().add("Authorization", "Bearer " + token)
                 req.getHeaders().setBearerAuth(jwt.getTokenValue());
             }
+            // Continue the request chain (execute the HTTP call)
             return exec.execute(req, body);
         };
-
+        // Attach our interceptor to this RestTemplate
         restTemplate.getInterceptors().add(interceptor);
+        // Return the configured bean to the application context
         return restTemplate;
     }
 }

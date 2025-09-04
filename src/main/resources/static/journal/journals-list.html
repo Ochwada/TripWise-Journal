@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>List Journals</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body { font-family: system-ui,-apple-system,Segoe UI,Roboto; margin:2rem auto; max-width: 900px; padding:0 1rem; }
+        label { font-weight:600; display:block; margin:.6rem 0 .25rem; }
+        input { width:100%; padding:.6rem .7rem; border:1px solid #e5e7eb; border-radius:8px; }
+        button { margin-top:1rem; padding:.7rem 1rem; border:0; border-radius:9px; background:#0f62fe; color:#fff; font-weight:700; cursor:pointer; }
+        pre { background:#0b1020; color:#d8e5ff; padding:1rem; border-radius:8px; overflow:auto; }
+    </style>
+</head>
+<body>
+<p><a href="/static">&larr; Back</a></p>
+<h1>List Journals <small style="color:#666">GET /journals</small></h1>
+
+<label for="token">Bearer token</label>
+<input id="token" type="text" placeholder="eyJhbGciOi..." />
+
+<div style="display:grid; gap:.75rem; grid-template-columns:1fr 1fr 1fr;">
+    <div>
+        <label for="page">Page</label>
+        <input id="page" type="number" value="0" />
+    </div>
+    <div>
+        <label for="size">Size</label>
+        <input id="size" type="number" value="20" />
+    </div>
+    <div>
+        <label for="sort">Sort</label>
+        <input id="sort" type="text" value="createdDate,desc" />
+    </div>
+</div>
+
+<button id="go">Fetch</button>
+
+<h2>Response</h2>
+<pre id="out"></pre>
+
+<script>
+    const API = 'http://localhost:9094';
+    const $ = id => document.getElementById(id);
+    const show = v => $('out').textContent = typeof v === 'string' ? v : JSON.stringify(v, null, 2);
+
+    $('go').addEventListener('click', async () => {
+        const token = $('token').value.trim();
+        const page = +$('page').value || 0;
+        const size = +$('size').value || 20;
+        const sort = encodeURIComponent($('sort').value || 'createdDate,desc');
+        try {
+            const res = await fetch(API + `/journals?page=${page}&size=${size}&sort=${sort}`, {
+                headers: { ...(token && {'Authorization':'Bearer '+token}) }
+            });
+            const data = await res.text(); let parsed; try{ parsed = JSON.parse(data);}catch{parsed = data}
+            show(res.ok ? parsed : ('Error '+res.status+':\n'+data));
+        } catch (e) { show(String(e)); }
+    });
+</script>
+</body>
+</html>

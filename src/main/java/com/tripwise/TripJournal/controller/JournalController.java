@@ -34,6 +34,8 @@ public class JournalController {
     private final JournalService service;
     private final  ControllerHelpers helpers;
 
+
+
     /** GET /journals — Fetch all journals for the user (paginated). */
     @GetMapping
     public Page<Journal> findAllJournals(

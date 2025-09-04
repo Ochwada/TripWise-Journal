@@ -90,12 +90,15 @@ JWT_SECRET=your_jwt_secret_from_TripPass
 
 ```yaml
 docker build -t tripjournal .
-docker run -p 9092:9092 tripjournal
+docker run -p 9094:9094 tripjournal
 
 ```
 Service is  available at:
 > - Localhost → http://localhost:9092/tripjournal
-> - Dockerized → https://tripwise:9092/tripjournal
+
+###  Docker Web access
+
+> - Dockerized → http://localhost:9094/journal/
 
 
 
@@ -109,6 +112,7 @@ Service is  available at:
 | `PUT`    | `/journals/{id}`   | ✅ Yes         | Update an existing journal entry     |
 | `DELETE` | `/journals/{id}`   | ✅ Yes         | Delete a journal entry               |
 | `GET`    | `/journals/search` | ✅ Yes         | Search journals by city/trip keyword |
+
 
 
 

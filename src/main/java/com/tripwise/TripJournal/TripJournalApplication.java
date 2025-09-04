@@ -19,7 +19,9 @@ public class TripJournalApplication {
                 "SPRING_DATA_MONGODB_URI", "OAUTH2_ISSUER_URI",
                 "JWT_AUDIENCE", "JWT_ALG", "MEDIA_BASE_URL",
                 "LOG_ROOT_LEVEL", "LOG_APP_LEVEL", "OPENWEATHER_API_KEY",
-                "SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI"
+               // "SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI",
+                "SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI",
+                "JOURNAL_ENRICHMENT_ENABLED"
         };
 
         for (String key : envVars) {

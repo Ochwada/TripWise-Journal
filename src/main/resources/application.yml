@@ -1,9 +1,7 @@
 server:
   port: ${PORT:9094}
   servlet:
-    context-path: /journal
-app:
-  base-url: https://tripwise:9094/journal
+    context-path: /
 
 spring:
   application:
@@ -27,6 +25,12 @@ logging:
   level:
     root: ${LOG_ROOT_LEVEL:INFO}
     com.triphub.tripjournal: ${LOG_APP_LEVEL:INFO}
+
+journal:
+  enrichment:
+    enabled: ${JOURNAL_ENRICHMENT_ENABLED:true}
+  media-callbacks:
+    enabled: ${JOURNAL_MEDIA_CALLBACKS_ENABLED:true}
 
 # --- Weather config (top-level) ---
 openweather:

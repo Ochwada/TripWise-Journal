@@ -1,0 +1,37 @@
+<!--Table of Contents / launcher-->
+<!--<link rel="stylesheet" href="/css/app.css">-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>TripJournal – Table of Contents</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <base href="/journal/"><!-- makes all links relative to /journal/ -->
+    <style>
+        :root { --border:#e5e7eb; --brand:#eb6df5; --muted:#666; }
+        body { font-family: system-ui,-apple-system,Segoe UI,Roboto; margin: 2rem auto; max-width: 900px; padding: 0 1rem; }
+        h1 { margin-bottom: .25rem; }
+        p { color: var(--muted); }
+        ul { list-style: none; padding: 0; display: grid; gap: .75rem; }
+        a { display: block; padding: .9rem 1rem; border:1px solid var(--border); border-radius: 12px; text-decoration: none; color: #111; }
+        a:hover { background: #f7f7f7; }
+        code { background:#f2f4f8; padding:.1rem .35rem; border-radius:6px; }
+    </style>
+</head>
+<body>
+<h1>TripJournal</h1>
+<p>Developer pages for trying your REST endpoints.</p>
+
+<h2>Journal endpoints</h2>
+<ul>
+    <li><a href="journals-create.html">Create Journal <code>POST /journals</code></a></li>
+    <li><a href="journals-list.html">List Journals <code>GET /journals</code></a></li>
+    <li><a href="journals-get.html">Get Journal by ID <code>GET /journals/{id}</code></a></li>
+    <li><a href="journals-update.html">Update Journal <code>PUT /journals/{id}</code></a></li>
+    <li><a href="journals-delete.html">Delete Journal <code>DELETE /journals/{id}</code></a></li>
+    <li><a href="journal-upload.html">Upload images & create</a></li>
+</ul>
+
+<p>Tip: you’ll need a Bearer token from <code>trippass</code> to call protected endpoints.</p>
+</body>
+</html>
