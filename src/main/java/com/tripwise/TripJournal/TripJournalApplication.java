@@ -15,13 +15,15 @@ public class TripJournalApplication {
         Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 
         String[] envVars = {
-                "PORT", "SPRING_APPLICATION_NAME",
+                "PORT", "SPRING_APPLICATION_NAME","GOOGLE_CLIENT_ID",
                 "SPRING_DATA_MONGODB_URI", "OAUTH2_ISSUER_URI",
                 "JWT_AUDIENCE", "JWT_ALG", "MEDIA_BASE_URL",
                 "LOG_ROOT_LEVEL", "LOG_APP_LEVEL", "OPENWEATHER_API_KEY",
-               // "SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI",
-                "SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI",
-                "JOURNAL_ENRICHMENT_ENABLED"
+                "SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI",
+                //"SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI",
+                "JOURNAL_ENRICHMENT_ENABLED",
+                "JWT_ALG",
+                "JWT_SECRET"
         };
 
         for (String key : envVars) {

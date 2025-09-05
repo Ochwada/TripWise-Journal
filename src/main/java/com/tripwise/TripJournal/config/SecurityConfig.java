@@ -1,9 +1,7 @@
 package com.tripwise.TripJournal.config;
 
-import org.springframework.boot.autoconfigure.security.oauth2.resource.OAuth2ResourceServerProperties;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.*;
-import org.springframework.core.convert.converter.Converter;
-import org.springframework.core.env.Environment;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -26,43 +24,20 @@ import java.util.*;
  */
 @Configuration
 public class SecurityConfig {
+
+
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                   JwtDecoder jwtDecoder,
-                                                   JwtAuthenticationConverter jwtAuthConverter) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationConverter jwtAuthConverter) throws Exception {
         http
-
-                // Stateless API with bearer tokens
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> {
-                }) // use a CorsConfigurationSource bean if needed
-                .sessionManagement(sm -> {
-                    sm
-                            .sessionCreationPolicy(SessionCreationPolicy.STATELESS);
-                })
-
-                // AuthZ rules (Authorization)
-                .authorizeHttpRequests(authorizeRequests -> authorizeRequests
-                                .requestMatchers(
-                                        "/", "/journal/**", "/**/*.css",
-                                        "/**/*.js", "/actuator/**").permitAll()
-                                .anyRequest().authenticated()
-
-                        // Resource server (JWT)
-                ).oauth2ResourceServer(oauth -> oauth
-                        // Default JWT decoder is based on spring.security.oauth2.resourceserver.jwt.issuer-uri
-                        // You can add a custom converter/decoder here if needed
-                        .jwt(
-                                jwt -> jwt.decoder(jwtDecoder)
-                                        .jwtAuthenticationConverter(jwtAuthConverter))
-                );
-
-
-        // Finalise and return the filter chain
-        return http.build(); // returns SecurityFilterChain object and registers it with Spring.
-    }
-
-    ;
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .oauth2ResourceServer(o -> o.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter)));
+        return http.build();
+    };
 
     /**
      * Map scopes -> authorities and prefer principal = "userId".
@@ -70,10 +45,9 @@ public class SecurityConfig {
      */
     @Bean
     public JwtAuthenticationConverter jwtAuthConverter() {
-
         var scopeConv = new JwtGrantedAuthoritiesConverter();
-        scopeConv.setAuthorityPrefix("ROLE_");
-        scopeConv.setAuthoritiesClaimName("authorities");
+        scopeConv.setAuthorityPrefix("ROLE_");          // optional
+        scopeConv.setAuthoritiesClaimName("authorities"); // optional; Google ID tokens won’t have this
 
         var conv = new JwtAuthenticationConverter();
         conv.setJwtGrantedAuthoritiesConverter(scopeConv);
@@ -107,52 +81,27 @@ public class SecurityConfig {
      * - spring.security.oauth2.resourceserver.jwt.issuer-uri   (fallback)
      * - tripjournal.security.audience                          (optional)
      */
+    /** Validate Google issuer + audience; also copy "sub" → "userId" so principal is stable. */
     @Bean
-    public JwtDecoder jwtDecoder(OAuth2ResourceServerProperties props, Environment env) {
-        String jwkSetUri = props.getJwt().getJwkSetUri();
-        String issuerUri = props.getJwt().getIssuerUri();
+    public JwtDecoder jwtDecoder(
+            @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer,
+            @Value("${google.client-id}") String audience) {
 
-        NimbusJwtDecoder decoder;
+        NimbusJwtDecoder decoder = JwtDecoders.fromIssuerLocation(issuer);
 
-        if (jwkSetUri != null && !jwkSetUri.isBlank()) {
-            //  Build directly from JWKS (no discovery)
-            decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
-        } else if (issuerUri != null && !issuerUri.isBlank()) {
-            // Fallback to issuer (requires OIDC discovery available)
-            decoder = (NimbusJwtDecoder) JwtDecoders.fromIssuerLocation(issuerUri);
-        } else {
-            throw new IllegalStateException("Configure either jwk-set-uri or issuer-uri for the resource server.");
-        }
-
-        // ----- Validators -----
-        OAuth2TokenValidator<Jwt> base = JwtValidators.createDefault();
-
-        // If you still want issuer claim validation with JWKS, read it from env and add validator.
-        String expectedIssuer = env.getProperty("spring.security.oauth2.resourceserver.jwt.issuer-uri");
-        if (expectedIssuer != null && !expectedIssuer.isBlank()) {
-            base = new DelegatingOAuth2TokenValidator<>(base, JwtValidators.createDefaultWithIssuer(expectedIssuer));
-        }
-
-        String audience = env.getProperty("tripjournal.security.audience");
-        if (audience != null && !audience.isBlank()) {
-            OAuth2TokenValidator<Jwt> audV = token -> {
-                List<String> aud = token.getAudience();
-                return (aud != null && aud.contains(audience))
+        OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuer);
+        OAuth2TokenValidator<Jwt> withAudience = jwt ->
+                (jwt.getAudience() != null && jwt.getAudience().contains(audience))
                         ? OAuth2TokenValidatorResult.success()
-                        : OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Invalid audience", null));
-            };
-            base = new DelegatingOAuth2TokenValidator<>(base, audV);
-        }
-        decoder.setJwtValidator(base);
+                        : OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Wrong audience", null));
 
-        // ----- Claim shaping -----
-        Converter<Map<String, Object>, Map<String, Object>> defaults =
-                MappedJwtClaimSetConverter.withDefaults(Collections.emptyMap());
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(withIssuer, withAudience));
 
-        decoder.setClaimSetConverter(in -> {
-            Map<String, Object> claims = new HashMap<>(Objects.requireNonNull(defaults.convert(in)));
-            claims.putIfAbsent("userId", claims.get("sub"));
-            return claims;
+        // copy "sub" => "userId" if missing
+        decoder.setClaimSetConverter(claims -> {
+            var m = new java.util.HashMap<>(claims);
+            m.putIfAbsent("userId", m.get("sub"));
+            return m;
         });
 
         return decoder;
