@@ -4,23 +4,33 @@
     <meta charset="UTF-8" />
     <title>Create Journal</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Set this to the SAME value as your backend's google.client-id -->
+    <meta name="google-client-id" content="YOUR_GOOGLE_CLIENT_ID">
     <style>
-        body { font-family: system-ui,-apple-system,Segoe UI,Roboto; margin:2rem auto; max-width: 900px; padding:0 1rem; }
+        body { font-family: system-ui,-apple-system,Segoe UI,Roboto; margin:2rem auto; max-width:900px; padding:0 1rem; }
         a { text-decoration:none; }
         label { font-weight:600; display:block; margin:.6rem 0 .25rem; }
         input, textarea { width:100%; padding:.6rem .7rem; border:1px solid #e5e7eb; border-radius:8px; }
-        textarea { min-height: 120px; }
+        textarea { min-height:120px; }
         button { margin-top:1rem; padding:.7rem 1rem; border:0; border-radius:9px; background:#0f62fe; color:#fff; font-weight:700; cursor:pointer; }
+        button.secondary { background:#475569; margin-left:.5rem; }
         pre { background:#0b1020; color:#d8e5ff; padding:1rem; border-radius:8px; overflow:auto; }
         .muted { color:#666; }
+        .ok { color:#16a34a; font-weight:600; }
+        .warn { color:#dc2626; font-weight:600; }
+        .row { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
     </style>
 </head>
 <body>
-<p><a href="/static">&larr; Back</a></p>
+<p><a href="/journal/">&larr; Back</a></p>
 <h1>Create Journal <small class="muted">POST /journals</small></h1>
 
-<label for="token">Bearer token</label>
-<input id="token" type="text" placeholder="eyJhbGciOi..." />
+<label for="token">Bearer token (paste from <code>http://localhost:9091/token</code>)</label>
+<div class="row">
+    <input id="token" type="text" placeholder="eyJhbGciOi..." />
+    <button id="validate" type="button" class="secondary">Validate</button>
+    <span id="tokenStatus" class="muted"></span>
+</div>
 
 <label for="title">Title *</label>
 <input id="title" type="text" maxlength="200" placeholder="Hiking in Aberdare Forest" />
@@ -57,9 +67,36 @@
 <pre id="out"></pre>
 
 <script>
-    const API = 'http://localhost:9094';
+    const API = window.location.origin; // same-origin, e.g., http://localhost:9094
+    const EXPECTED_AUD = document.querySelector('meta[name="google-client-id"]').content || '';
+    const EXPECTED_ISS = 'https://accounts.google.com';
+
     const $ = id => document.getElementById(id);
     const show = v => $('out').textContent = typeof v === 'string' ? v : JSON.stringify(v, null, 2);
+
+    function b64ToJson(b64){ return JSON.parse(atob(b64.replace(/-/g,'+').replace(/_/g,'/'))); }
+    function decodeJwt(jwt){ const [h,p] = jwt.split('.'); return {header:b64ToJson(h), payload:b64ToJson(p)}; }
+    function secsLeft(exp){ return Math.max(0, Math.floor(exp - Date.now()/1000)); }
+
+    function validateIdToken(idToken){
+        try{
+            if (!idToken.includes('.')) return {ok:false, msg:'Not a JWT'};
+            const {payload} = decodeJwt(idToken);
+            const issOk = payload.iss === EXPECTED_ISS;
+            const audOk = (Array.isArray(payload.aud) ? payload.aud.includes(EXPECTED_AUD) : payload.aud === EXPECTED_AUD) || payload.azp === EXPECTED_AUD;
+            const expOk = (payload.exp*1000) > Date.now();
+            const msg = `iss=${payload.iss} ${issOk?'✓':'✗'}, aud=${payload.aud} azp=${payload.azp||''} ${audOk?'✓':'✗'}, exp=${new Date(payload.exp*1000).toISOString()} (${secsLeft(payload.exp)}s left) ${expOk?'✓':'✗'}`;
+            return {ok: issOk && audOk && expOk, msg};
+        }catch(e){ return {ok:false, msg:'Decode failed'}; }
+    }
+
+    $('validate').addEventListener('click', () => {
+        const token = $('token').value.trim();
+        const check = validateIdToken(token);
+        $('tokenStatus').innerHTML = check.ok
+            ? `<span class="ok">Looks good</span> — ${check.msg}`
+            : `<span class="warn">Token mismatch</span> — ${check.msg}`;
+    });
 
     $('submit').addEventListener('click', async () => {
         const token = $('token').value.trim();
@@ -73,18 +110,31 @@
             metadata: parseJsonOrNull($('metadata').value),
             mediaIds: ($('mediaIds').value || '').split(',').map(s=>s.trim()).filter(Boolean)
         };
-        try {
+        try{
             const res = await fetch(API + '/journals', {
                 method:'POST',
-                headers: {'Content-Type':'application/json', ...(token && {'Authorization':'Bearer '+token})},
+                headers: {
+                    'Content-Type':'application/json',
+                    ...(token && { 'Authorization':'Bearer '+token })
+                },
                 body: JSON.stringify(payload)
             });
-            const data = await res.text(); let parsed; try{ parsed = JSON.parse(data)}catch{parsed = data}
-            show(res.ok ? parsed : ('Error '+res.status+':\n'+data));
-        } catch (e) { show(String(e)); }
+            const text = await res.text(); let parsed; try{ parsed = JSON.parse(text);}catch{ parsed = text; }
+            if (!res.ok) {
+                const hint = res.status === 401
+                    ? '\nHint: check iss (https://accounts.google.com), audience (must equal your google.client-id), and expiry.'
+                    : '';
+                show('Error ' + res.status + ':\n' + parsed + hint);
+            } else {
+                show(parsed);
+            }
+        }catch(e){ show(String(e)); }
     });
 
-    function parseJsonOrNull(raw){ if(!raw.trim()) return null; try{ return JSON.parse(raw);}catch(e){ alert('Invalid JSON: '+e.message); throw e; } }
+    function parseJsonOrNull(raw){
+        if(!raw.trim()) return null;
+        try{ return JSON.parse(raw); }catch(e){ alert('Invalid JSON: '+e.message); throw e; }
+    }
 </script>
 </body>
 </html>

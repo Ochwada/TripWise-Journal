@@ -12,6 +12,7 @@ import org.springframework.security.oauth2.server.resource.authentication.*;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.*;
 
+import java.time.Duration;
 import java.util.*;
 
 /**
@@ -41,6 +42,8 @@ public class SecurityConfig {
 
                         //  ALL static pages & assets under /journal/ are public (GET only)
                         .requestMatchers(HttpMethod.GET, "/journal/**").permitAll()
+                        .requestMatchers(HttpMethod.HEAD, "/journal/**").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/journal/**").permitAll()
 
                         //  APIs remain protected
                         .requestMatchers("/journals/**").authenticated()
@@ -98,25 +101,36 @@ public class SecurityConfig {
     @Bean
     public JwtDecoder jwtDecoder(
             @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer,
-            @Value("${google.client-id}") String audience) {
+            @Value("${google.client-id}") String googleClientId
+    ) {
+        // normalize issuer
+        if ("accounts.google.com".equals(issuer)) {
+            issuer = "https://accounts.google.com";
+        }
 
         NimbusJwtDecoder decoder = JwtDecoders.fromIssuerLocation(issuer);
 
-        OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuer);
-        OAuth2TokenValidator<Jwt> withAudience = jwt ->
-                (jwt.getAudience() != null && jwt.getAudience().contains(audience))
-                        ? OAuth2TokenValidatorResult.success()
-                        : OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Wrong audience", null));
+        // audience validation
+        OAuth2TokenValidator<Jwt> audienceValidator = jwt -> {
+            Object aud = jwt.getClaims().get("aud");
+            String azp = (String) jwt.getClaims().get("azp");
+            boolean match =
+                    (aud instanceof String s && googleClientId.equals(s)) ||
+                            (aud instanceof Collection<?> c && (c.contains(googleClientId) || googleClientId.equals(azp)));
 
-        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(withIssuer, withAudience));
+            return match
+                    ? OAuth2TokenValidatorResult.success()
+                    : OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Audience mismatch", null));
+        };
 
-        // copy "sub" => "userId" if missing
-        decoder.setClaimSetConverter(claims -> {
-            var m = new java.util.HashMap<>(claims);
-            m.putIfAbsent("userId", m.get("sub"));
-            return m;
-        });
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefaultWithIssuer(issuer),
+                new JwtTimestampValidator(Duration.ofMinutes(5)),
+                audienceValidator
+        ));
 
         return decoder;
     }
+
+
 }
