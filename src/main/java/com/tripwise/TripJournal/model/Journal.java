@@ -18,7 +18,7 @@ import java.time.Instant;
  * location details.
  * ================================================================
  */
-@Document(collation = "journals")
+@Document(collection = "journal")
 @AllArgsConstructor
 @NoArgsConstructor
 @Data

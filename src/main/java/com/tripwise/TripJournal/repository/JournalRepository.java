@@ -1,5 +1,6 @@
 package com.tripwise.TripJournal.repository;
 
+import com.tripwise.TripJournal.dto.responses.JournalResponse;
 import com.tripwise.TripJournal.model.Journal;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -39,7 +40,6 @@ public interface JournalRepository extends MongoRepository<Journal, String> {
      */
     Optional<Journal> findByIdAndUserId(String id, String userId);
 
-
     /**
      * Case-insensitive title search for journals belonging to a user.
      * <p>
@@ -61,6 +61,7 @@ public interface JournalRepository extends MongoRepository<Journal, String> {
      * @param id     the journal ID
      * @param userId the owner user ID
      */
-    void deleteByIdAndUserId(String id, String userId);
+    long deleteByIdAndUserId(String id, String userId);
+
 
 }

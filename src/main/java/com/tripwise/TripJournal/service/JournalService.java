@@ -10,13 +10,17 @@ import com.tripwise.TripJournal.service.client.TripMediaClient;
 import lombok.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.server.ResponseStatusException;
 
 
 import java.time.Instant;
 import java.util.*;
+
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 
 /**
@@ -46,22 +50,28 @@ public class JournalService {
     private boolean mediaCallbacksEnabled;
 
     /** List journals for the authenticated user (paginated). */
-    public Page<JournalResponse> findAllJournals(String userId, Pageable pageable) {
-        return repository.findByUserId(userId, pageable).map(mapper::toResponse);
+    public List<JournalResponse> findAllJournals(String userId) {
+        return repository.findByUserId(userId, Pageable.unpaged())
+                .map(mapper::toResponse)
+                .getContent();
     }
 
     /** Get a single journal owned by the user. */
     public Journal findJournalById(String journalId) {
         return repository.findById(journalId)
-                .orElseThrow(() -> new NoSuchElementException("Journal with id: " + journalId + " not found"));
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Journal not found: " + journalId));
+
     }
 
 
     /** Get a single journal owned by the user. */
-    public Journal getJournal(String userId, String id) {
+    public JournalResponse getJournal(String userId, String id) {
         return repository.findByIdAndUserId(id, userId)
-                .orElseThrow(() -> new NoSuchElementException("Journal not found: " + id));
+                .map(mapper::toResponse)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Journal not found: " + id));
+
     }
+
 
     /** Create a journal; user metadata overrides auto-enriched keys on conflict. */
     public Journal createJournal(String userId, CreateJournalRequest req) {
@@ -97,22 +107,18 @@ public class JournalService {
      * User-provided metadata still wins on key conflicts.
      */
     @Transactional
-    public Journal updateJournal(String userId, String id, UpdateJournalRequest req) {
-        Journal existing = getJournal(userId, id);
+    public JournalResponse updateJournal(String userId, String id, UpdateJournalRequest req) {
+        Journal existing = getJournalEntity(userId, id);
 
         boolean locationChanged =
                 !Objects.equals(existing.getCity(), req.getCity()) ||
-                !Objects.equals(existing.getCountry(), req.getCountry());
+                        !Objects.equals(existing.getCountry(), req.getCountry());
+
         Map<String, Object> baseAuto = locationChanged
                 ? helpers.tryAutoMetadata(req.getCity(), req.getCountry())
                 : enricher.extractAutoPortion(existing.getMetadata());
 
-//        Map<String, Object> baseAuto = locationChanged
-//                ? enricher.buildAutoMetadata(req.getCity(), req.getCountry())
-//                : enricher.extractAutoPortion(existing.getMetadata());
-
         Map<String, Object> merged = enricher.mergeMetadata(baseAuto, req.getMetadata());
-
         boolean titleChanged = !Objects.equals(existing.getTitle(), req.getTitle());
 
         existing.setItineraryId(req.getItineraryId());
@@ -124,28 +130,59 @@ public class JournalService {
         existing.setMetadata(merged.isEmpty() ? null : merged);
         existing.setModifiedDate(Instant.now());
 
-        Journal savedJournal = repository.save(existing);
+        Journal saved = repository.save(existing);
 
-        //  If location/title changed, refresh media artifacts (thumbnails, captions, etc.)
         if (locationChanged || titleChanged) {
-            helpers.safeCall(() -> tripMediaClient.refreshAssets(savedJournal.getId()) );
+            helpers.safeCall(() -> tripMediaClient.refreshAssets(saved.getId()));
         }
 
-        return savedJournal;
+        return mapper.toResponse(saved);
     }
+
+    private Journal getJournalEntity(String userId, String id) {
+        return repository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Journal not found: " + id));
+    }
+
+    @Transactional
+    public JournalResponse patchJournal(String userId, String id, Map<String, Object> updates) {
+        Journal existing = getJournalEntity(userId, id); // returns Journal entity
+
+        if (updates.containsKey("title")) {
+            existing.setTitle((String) updates.get("title"));
+        }
+        if (updates.containsKey("description")) {
+            existing.setDescription((String) updates.get("description"));
+        }
+        if (updates.containsKey("tags")) {
+            existing.setTags((List<String>) updates.get("tags"));
+        }
+        if (updates.containsKey("metadata")) {
+            existing.setMetadata((Map<String, Object>) updates.get("metadata"));
+        }
+
+        existing.setModifiedDate(Instant.now());
+        Journal saved = repository.save(existing);
+
+        return mapper.toResponse(saved);
+    }
+
+
 
     /** Delete a journal owned by the user. */
     @Transactional
     public void deleteJournal(String userId, String id) {
-        Journal existing = getJournal(userId, id); // enforces ownership/404
+        Journal existing = repository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Journal not found: " + id));
 
-
-
-        // Ask media to remove associated files first (best-effort)
         helpers.safeCall(() -> tripMediaClient.deleteAssets(existing.getId()));
 
-        repository.deleteByIdAndUserId(existing.getId(), userId);
+        long deleted = repository.deleteByIdAndUserId(existing.getId(), userId);
+        if (deleted == 0) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Journal not found: " + id);
+        }
     }
+
 
     /** Search by title (case-insensitive regex), scoped to the user (paginated). */
     public Page<Journal> searchByTitle(String userId, String term, Pageable pageable) {

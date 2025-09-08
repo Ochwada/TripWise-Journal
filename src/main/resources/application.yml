@@ -3,6 +3,11 @@ server:
   servlet:
     context-path: /
 
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: always
+
 
 google:
   client-id: ${GOOGLE_CLIENT_ID}
@@ -39,3 +44,6 @@ openweather:
   apiKey: ${OPENWEATHER_API_KEY}
   baseUrl: https://api.openweathermap.org
   units: metric
+
+
+
