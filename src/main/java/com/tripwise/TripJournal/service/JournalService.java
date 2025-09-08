@@ -2,6 +2,8 @@ package com.tripwise.TripJournal.service;
 
 import com.tripwise.TripJournal.dto.requests.CreateJournalRequest;
 import com.tripwise.TripJournal.dto.requests.UpdateJournalRequest;
+import com.tripwise.TripJournal.dto.responses.JournalResponse;
+import com.tripwise.TripJournal.mapper.JournalMapper;
 import com.tripwise.TripJournal.model.Journal;
 import com.tripwise.TripJournal.repository.JournalRepository;
 import com.tripwise.TripJournal.service.client.TripMediaClient;
@@ -34,6 +36,7 @@ public class JournalService {
     private final JournalEnricher enricher;
     private final TripMediaClient tripMediaClient;
     private final ServiceHelpers helpers;
+    private final JournalMapper mapper;
 
 
     @Value("${journal.enrichment.enabled:true}")
@@ -43,8 +46,8 @@ public class JournalService {
     private boolean mediaCallbacksEnabled;
 
     /** List journals for the authenticated user (paginated). */
-    public Page<Journal> findAllJournals(String userId, Pageable pageable) {
-        return repository.findByUserId(userId, pageable);
+    public Page<JournalResponse> findAllJournals(String userId, Pageable pageable) {
+        return repository.findByUserId(userId, pageable).map(mapper::toResponse);
     }
 
     /** Get a single journal owned by the user. */

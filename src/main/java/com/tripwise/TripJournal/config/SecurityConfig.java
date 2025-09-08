@@ -2,6 +2,7 @@ package com.tripwise.TripJournal.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.*;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -32,7 +33,19 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        // existing public stuff
+                        .requestMatchers("/", "/index.html", "/error", "/favicon.ico",
+                                "/actuator/health", "/actuator/info",
+                                "/swagger-ui/**", "/v3/api-docs/**",
+                                "/api/public/**").permitAll()
+
+                        //  ALL static pages & assets under /journal/ are public (GET only)
+                        .requestMatchers(HttpMethod.GET, "/journal/**").permitAll()
+
+                        //  APIs remain protected
+                        .requestMatchers("/journals/**").authenticated()
+
+                        // anything else → auth
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(o -> o.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter)));
@@ -56,7 +69,7 @@ public class SecurityConfig {
     }
 
     /**
-     * CORS for your frontend. Adjust origins as needed.
+     * CORS for the  frontend.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {

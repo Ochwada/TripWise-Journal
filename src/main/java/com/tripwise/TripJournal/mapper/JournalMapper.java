@@ -4,6 +4,7 @@ import com.tripwise.TripJournal.dto.requests.CreateJournalRequest;
 import com.tripwise.TripJournal.dto.requests.UpdateJournalRequest;
 import com.tripwise.TripJournal.dto.responses.JournalResponse;
 import com.tripwise.TripJournal.model.Journal;
+import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -19,6 +20,7 @@ import java.util.Objects;
  * Description :
  * ================================================================
  */
+@Component
 public final class JournalMapper {
     private JournalMapper() {
     }
@@ -83,7 +85,7 @@ public final class JournalMapper {
         return locationChanged;
     }
 
-    public static JournalResponse toResponse(Journal journal) {
+    public JournalResponse toResponse(Journal journal) {
         return JournalResponse.builder()
                 .id(journal.getId())
                 .itineraryId(journal.getItineraryId())

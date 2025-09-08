@@ -2,6 +2,7 @@ package com.tripwise.TripJournal.controller;
 
 import com.tripwise.TripJournal.dto.requests.CreateJournalRequest;
 import com.tripwise.TripJournal.dto.requests.UpdateJournalRequest;
+import com.tripwise.TripJournal.dto.responses.JournalResponse;
 import com.tripwise.TripJournal.model.Journal;
 import com.tripwise.TripJournal.service.JournalService;
 import jakarta.validation.Valid;
@@ -38,9 +39,9 @@ public class JournalController {
 
     /** GET /journals — Fetch all journals for the user (paginated). */
     @GetMapping
-    public Page<Journal> findAllJournals(
+    public Page<JournalResponse> findAllJournals(
             Authentication authentication,
-            @PageableDefault(sort="createdDate", size = 20) Pageable pageable, Sort sort) {
+            @PageableDefault(sort="createdDate", size = 20,  direction = Sort.Direction.DESC) Pageable pageable, Sort sort) {
 
         String userId = helpers.resolveUserId(authentication);
 

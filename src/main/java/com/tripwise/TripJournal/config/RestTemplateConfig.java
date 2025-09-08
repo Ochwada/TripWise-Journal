@@ -27,7 +27,7 @@ public class RestTemplateConfig {
      * @return a configured, reusable {@link RestTemplate} bean
      */
     @Bean
-    public RestTemplate restTemplate() {
+    public RestTemplate mediaRestTemplate() {
 // Create the RestTemplate instance used across the app
         RestTemplate restTemplate = new RestTemplate();
 
