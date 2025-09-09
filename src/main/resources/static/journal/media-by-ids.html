@@ -1,0 +1,165 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>TripJournal — Media by IDs</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+    :root { --bg:#fff; --fg:#111; --muted:#6b7280; --border:#e5e7eb; --brand:#0f62fe; --warn:#ef4444; }
+    body { font-family: system-ui,-apple-system,Segoe UI,Roboto; margin: 2rem auto; max-width: 1100px; padding: 0 1rem; color: var(--fg); background: var(--bg); }
+    h1 { margin: 0 0 .75rem; }
+    label { font-weight: 600; display:block; margin:.5rem 0 .25rem; }
+    input, textarea { width: 100%; padding: .6rem .7rem; border: 1px solid var(--border); border-radius: 8px; }
+    textarea { min-height: 110px; }
+    button { padding: .7rem 1rem; border: 0; border-radius: 9px; font-weight: 700; cursor: pointer; }
+    .primary { background: var(--brand); color:#fff; }
+    .ghost { background:#f3f4f6; }
+    .danger { background: var(--warn); color:#fff; }
+    .row { display:grid; grid-template-columns:1.2fr 2fr 1.8fr auto; gap:.75rem; align-items:end; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap:.9rem; margin-top:1rem; }
+    .card { border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#fff; display:flex; flex-direction:column; }
+    .media { aspect-ratio:4/3; display:grid; place-items:center; background:#fafafa; border-bottom:1px solid var(--border); }
+    .media img, .media video { max-width:100%; max-height:100%; }
+    .meta { padding:.6rem .75rem; font-size:.9rem; }
+    .muted { color: var(--muted); }
+    .actions { display:flex; gap:.5rem; padding:.6rem .75rem .9rem; }
+    pre { background:#0b1020; color:#d8e5ff; padding:1rem; border-radius:8px; overflow:auto; }
+    .kbd { font: 600 .8rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:#f2f4f8; border:1px solid var(--border); border-radius:6px; padding:.1rem .4rem; }
+</style>
+
+<h1>Media by IDs</h1>
+<p class="muted">Paste one or more IDs (comma / space / newline). Uses <span class="kbd">POST /media/batch</span> and <span class="kbd">DELETE /media/{id}</span>. Add Public Media Base to preview when <code>cdnUrl</code> isn’t returned.</p>
+
+<div class="row">
+    <div>
+        <label>Gateway Base</label>
+        <input id="base" value="http://localhost:9094" />
+    </div>
+    <div>
+        <label>Bearer Token</label>
+        <input id="tok" placeholder="eyJhbGciOi..." />
+    </div>
+    <div>
+        <label>Public Media Base (optional)</label>
+        <input id="pub" placeholder="https://<r2-account>.r2.cloudflarestorage.com" />
+    </div>
+    <div>
+        <button id="load" class="primary">Load</button>
+    </div>
+</div>
+
+<label>Media IDs</label>
+<textarea id="ids" placeholder="be1b2ea0-977f-463c-a3b2-637f9bf8d3b1
+1a2b3c4d-...."></textarea>
+
+<div id="grid" class="grid"></div>
+
+<h2>Raw response (last)</h2>
+<pre id="out" class="muted">Ready.</pre>
+
+<script>
+    const $ = id => document.getElementById(id);
+    const show = v => $('out').textContent = typeof v === 'string' ? v : JSON.stringify(v, null, 2);
+    const fmtBytes = n => (!n && n!==0) ? '—' : Intl.NumberFormat().format(n) + ' B';
+
+    function parseIds(raw) {
+        return (raw || '')
+            .split(/[\s,]+/)
+            .map(s => s.trim())
+            .filter(Boolean);
+    }
+
+    function pickUrl(item) {
+        if (item?.cdnUrl) return item.cdnUrl;
+        if (item?.previewUrl) return item.previewUrl;
+        if (item?.url) return item.url;
+        const pub = $('pub').value.trim().replace(/\/+$/,'');
+        if (pub && item?.storageKey) return `${pub}/${item.storageKey}`;
+        return null;
+    }
+    function mediaKind(item) {
+        const mt = (item?.mimeType || '').toLowerCase();
+        if (mt.startsWith('video/')) return 'video';
+        if (mt.startsWith('image/')) return 'image';
+        return 'other';
+    }
+
+    async function fetchBatch(base, token, ids) {
+        const res = await fetch(`${base.replace(/\/+$/,'')}/media/batch`, {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + token },
+            body: JSON.stringify(ids)
+        });
+        const text = await res.text(); let data;
+        try { data = JSON.parse(text); } catch { data = text; }
+        return { ok: res.ok, status: res.status, data };
+    }
+
+    function render(items) {
+        const g = $('grid'); g.innerHTML = '';
+        (items || []).forEach(it=>{
+            const card = document.createElement('div'); card.className='card';
+            const m = document.createElement('div'); m.className='media';
+            const url = pickUrl(it);
+            const kind = mediaKind(it);
+
+            if (url && kind==='image') {
+                const img = new Image(); img.loading='lazy'; img.src = url; m.appendChild(img);
+            } else if (url && kind==='video') {
+                const vid = document.createElement('video'); vid.controls=true; vid.src=url; m.appendChild(vid);
+            } else {
+                const span = document.createElement('div'); span.className='muted'; span.textContent='(no preview)'; m.appendChild(span);
+            }
+
+            const meta = document.createElement('div'); meta.className='meta';
+            meta.innerHTML = `
+      <div><strong>${it.fileName || '(unnamed)'}</strong></div>
+      <div class="muted">${it.id || '—'}</div>
+      <div class="muted">${it.mimeType || '—'} · ${fmtBytes(it.bytes)}</div>
+    `;
+
+            const actions = document.createElement('div'); actions.className='actions';
+            const openBtn = document.createElement('button'); openBtn.className='ghost'; openBtn.textContent='Open';
+            openBtn.onclick = ()=> url ? window.open(url, '_blank') : alert('No public URL on record.');
+
+            const copyBtn = document.createElement('button'); copyBtn.className='ghost'; copyBtn.textContent='Copy ID';
+            copyBtn.onclick = async ()=> { try { await navigator.clipboard.writeText(it.id || ''); copyBtn.textContent='Copied!'; setTimeout(()=>copyBtn.textContent='Copy ID',900); } catch(_){} };
+
+            const delBtn = document.createElement('button'); delBtn.className='danger'; delBtn.textContent='Delete';
+            delBtn.onclick = async ()=>{
+                if (!it.id) return alert('No ID on record.');
+                if (!confirm(`Delete media ${it.id}?\nThis cannot be undone.`)) return;
+                const base = $('base').value.trim(), tok = $('tok').value.trim();
+                const res = await fetch(`${base.replace(/\/+$/,'')}/media/${encodeURIComponent(it.id)}`, {
+                    method: 'DELETE', headers: { Authorization: 'Bearer ' + tok }
+                });
+                if (res.ok) { card.remove(); } else {
+                    const msg = await res.text();
+                    alert(`Delete failed: ${res.status}\n${msg}`);
+                }
+            };
+
+            actions.append(openBtn, copyBtn, delBtn);
+            card.append(m, meta, actions);
+            g.appendChild(card);
+        });
+    }
+
+    $('load').onclick = async ()=>{
+        try{
+            const base = $('base').value.trim();
+            const tok  = $('tok').value.trim();
+            const ids  = parseIds($('ids').value);
+            if (!tok)  return alert('Paste a Bearer token first.');
+            if (ids.length === 0) return alert('Paste at least one media ID.');
+
+            const r = await fetchBatch(base, tok, ids);
+            show(r.data);
+            if (!r.ok) return alert(`Error: ${r.status} ${typeof r.data==='string'? r.data : JSON.stringify(r.data)}`);
+            if (!Array.isArray(r.data)) return alert('Server did not return a JSON array. Check /media/batch implementation.');
+
+            render(r.data);
+        } catch (e) {
+            show(String(e));
+            alert(String(e));
+        }
+    };
+</script>

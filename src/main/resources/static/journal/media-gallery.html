@@ -1,0 +1,184 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>TripJournal — All Media Gallery</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+    :root { --border:#e5e7eb; --muted:#6b7280; --brand:#0f62fe; --warn:#ef4444; }
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto;margin:2rem auto;max-width:1100px;padding:0 1rem}
+    h1{margin:0 0 .75rem}
+    label{font-weight:600;display:block;margin:.5rem 0 .25rem}
+    input{width:100%;padding:.6rem .7rem;border:1px solid var(--border);border-radius:8px}
+    button{padding:.7rem 1rem;border:0;border-radius:9px;font-weight:700;cursor:pointer}
+    .primary{background:var(--brand);color:#fff}
+    .ghost{background:#f3f4f6}
+    .danger{background:var(--warn);color:#fff}
+    .row{display:grid;grid-template-columns:1.2fr 2fr 1.8fr auto;gap:.75rem;align-items:end}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.9rem;margin-top:1rem}
+    .card{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;display:flex;flex-direction:column}
+    .media{aspect-ratio:4/3;display:grid;place-items:center;background:#fafafa;border-bottom:1px solid var(--border)}
+    .media img,.media video{max-width:100%;max-height:100%}
+    .meta{padding:.6rem .75rem;font-size:.9rem}
+    .muted{color:var(--muted)}
+    .actions{display:flex;gap:.5rem;padding:.6rem .75rem .9rem}
+    pre{background:#0b1020;color:#d8e5ff;padding:1rem;border-radius:8px;overflow:auto}
+    .kbd{font:600 .8rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#f2f4f8;border:1px solid var(--border);border-radius:6px;padding:.1rem .4rem}
+</style>
+
+<h1>All Media Gallery</h1>
+<p class="muted">Loads all journals → collects <code>mediaIds</code> (or similar fields) → fetches details via <span class="kbd">POST /media/batch</span>. Provide a Public Media Base if your API doesn’t return <code>cdnUrl</code>.</p>
+
+<div class="row">
+    <div>
+        <label>Gateway Base</label>
+        <input id="base" value="http://localhost:9094" />
+    </div>
+    <div>
+        <label>Bearer Token</label>
+        <input id="tok" placeholder="eyJhbGciOi..." />
+    </div>
+    <div>
+        <label>Public Media Base (optional)</label>
+        <input id="pub" placeholder="https://<r2-account>.r2.cloudflarestorage.com" />
+    </div>
+    <div><button id="load" class="primary">Load</button></div>
+</div>
+
+<div id="grid" class="grid"></div>
+
+<h2>Raw response (last)</h2>
+<pre id="out" class="muted">Ready.</pre>
+
+<script>
+    const $ = id => document.getElementById(id);
+    const show = v => $('out').textContent = typeof v==='string' ? v : JSON.stringify(v,null,2);
+    const fmtBytes = n => (!n && n!==0) ? '—' : Intl.NumberFormat().format(n) + ' B';
+
+    function pickUrl(it){
+        if (it?.cdnUrl) return it.cdnUrl;
+        if (it?.previewUrl) return it.previewUrl;
+        if (it?.url) return it.url;
+        const pub = $('pub').value.trim().replace(/\/+$/,'');
+        if (pub && it?.storageKey) return `${pub}/${it.storageKey}`;
+        return null;
+    }
+    function kind(it){
+        const mt=(it?.mimeType||'').toLowerCase();
+        if (mt.startsWith('video/')) return 'video';
+        if (mt.startsWith('image/')) return 'image';
+        return 'other';
+    }
+
+    async function getJSON(u, tok){
+        const res=await fetch(u,{headers:{Authorization:'Bearer '+tok}});
+        const txt=await res.text(); let data; try{data=JSON.parse(txt);}catch{data=txt;}
+        return {ok:res.ok,status:res.status,data};
+    }
+
+    async function listJournals(base, tok){
+        const r=await getJSON(`${base}/journals?size=2000`, tok);
+        if(!r.ok) throw new Error(`journals ${r.status}`);
+        const d=r.data;
+        if(Array.isArray(d)) return d;
+        if (d && Array.isArray(d.content)) return d.content;
+        return [];
+    }
+
+    // try many shapes on journal/list + journal/detail
+    function extractIdsFromJournal(j, into){
+        const push = v => { if (typeof v==='string' && v.trim()) into.add(v.trim()); };
+        const fromArr = arr => {
+            if (!Array.isArray(arr)) return;
+            arr.forEach(x => {
+                if (typeof x==='string') push(x);
+                else if (x && typeof x==='object') push(x.id || x.mediaId);
+            });
+        };
+        fromArr(j.mediaIds);
+        fromArr(j.media);
+        fromArr(j.images);
+        if (j.coverMediaId) push(j.coverMediaId);
+        if (Array.isArray(j.entries)) {
+            j.entries.forEach(e=>{
+                fromArr(e.mediaIds);
+                fromArr(e.media);
+                fromArr(e.images);
+                if (e.coverMediaId) push(e.coverMediaId);
+            });
+        }
+    }
+
+    async function gatherMediaIds(base, tok, journals){
+        const ids=new Set();
+        journals.forEach(j=>extractIdsFromJournal(j, ids));
+        if (ids.size>0) return [...ids];
+
+        // Fallback: fetch each journal's detail
+        const details=await Promise.all(
+            journals.map(j => getJSON(`${base}/journals/${encodeURIComponent(j.id)}`, tok)
+                .then(r=>r.ok ? r.data : null)
+                .catch(()=>null))
+        );
+        details.filter(Boolean).forEach(j=>extractIdsFromJournal(j, ids));
+        return [...ids];
+    }
+
+    async function batchMedia(base, tok, ids){
+        if(ids.length===0) return [];
+        const res=await fetch(`${base}/media/batch`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok},
+            body:JSON.stringify(ids)
+        });
+        const txt=await res.text(); let data; try{data=JSON.parse(txt);}catch{data=txt;}
+        if(!Array.isArray(data)) throw new Error(`batch ${res.status}: ${txt}`);
+        return data;
+    }
+
+    function render(items){
+        const g=$('grid'); g.innerHTML='';
+        items.forEach(it=>{
+            const card=document.createElement('div'); card.className='card';
+            const m=document.createElement('div'); m.className='media';
+            const url=pickUrl(it); const k=kind(it);
+
+            if(url && k==='image'){ const img=new Image(); img.loading='lazy'; img.src=url; m.appendChild(img); }
+            else if(url && k==='video'){ const v=document.createElement('video'); v.controls=true; v.src=url; m.appendChild(v); }
+            else { const span=document.createElement('div'); span.className='muted'; span.textContent='(no preview)'; m.appendChild(span); }
+
+            const meta=document.createElement('div'); meta.className='meta';
+            meta.innerHTML=`<div><strong>${it.fileName||'(unnamed)'}</strong></div>
+                    <div class="muted">${it.id||'—'}</div>
+                    <div class="muted">${it.mimeType||'—'} · ${fmtBytes(it.bytes)}</div>`;
+
+            const actions=document.createElement('div'); actions.className='actions';
+            const openBtn=document.createElement('button'); openBtn.className='ghost'; openBtn.textContent='Open';
+            openBtn.onclick=()=> url ? window.open(url,'_blank') : alert('No public URL on record.');
+            const copyBtn=document.createElement('button'); copyBtn.className='ghost'; copyBtn.textContent='Copy ID';
+            copyBtn.onclick=async()=>{ try{await navigator.clipboard.writeText(it.id||''); copyBtn.textContent='Copied!'; setTimeout(()=>copyBtn.textContent='Copy ID',900);}catch{} };
+            const delBtn=document.createElement('button'); delBtn.className='danger'; delBtn.textContent='Delete';
+            delBtn.onclick=async()=>{
+                if(!confirm(`Delete media ${it.id}?`)) return;
+                const res=await fetch(`${$('base').value.replace(/\/+$/,'')}/media/${encodeURIComponent(it.id)}`,{
+                    method:'DELETE',headers:{Authorization:'Bearer '+$('tok').value}
+                });
+                if(res.ok) card.remove(); else alert(`Delete failed: ${res.status}`);
+            };
+            actions.append(openBtn,copyBtn,delBtn);
+            card.append(m,meta,actions); g.appendChild(card);
+        });
+    }
+
+    $('load').onclick=async()=>{
+        try{
+            const base=$('base').value.trim().replace(/\/+$/,'');
+            const tok=$('tok').value.trim();
+            if(!tok) return alert('Paste a Bearer token first.');
+
+            const journals=await listJournals(base,tok);
+            const ids=await gatherMediaIds(base,tok,journals);
+            const media=await batchMedia(base,tok,ids);
+            show({journals:journals.length, mediaCount:media.length});
+            render(media);
+        }catch(e){ show(String(e)); alert(String(e)); }
+    };
+</script>
