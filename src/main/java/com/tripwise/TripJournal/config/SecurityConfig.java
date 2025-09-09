@@ -36,9 +36,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // existing public stuff
                         .requestMatchers("/", "/index.html", "/error", "/favicon.ico",
-                                "/actuator/health", "/actuator/info",
                                 "/swagger-ui/**", "/v3/api-docs/**",
                                 "/api/public/**").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
+
 
                         //  ALL static pages & assets under /journal/ are public (GET only)
                         .requestMatchers(HttpMethod.GET, "/journal/**").permitAll()

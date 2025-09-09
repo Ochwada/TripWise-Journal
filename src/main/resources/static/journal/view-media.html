@@ -1,0 +1,64 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>View Media by ID</title>
+<style>
+    body{font-family:system-ui,Segoe UI,Roboto;margin:2rem;max-width:800px}
+    input{width:100%;padding:.6rem;border:1px solid #ddd;border-radius:8px;margin:.25rem 0 1rem}
+    button{padding:.6rem 1rem;border:0;border-radius:8px;background:#0f62fe;color:#fff;font-weight:700;cursor:pointer}
+    pre{background:#0b1020;color:#d8e5ff;padding:1rem;border-radius:8px;overflow:auto}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    img,video{max-width:100%;border:1px solid #eee;border-radius:8px}
+</style>
+
+<h1>View Media by ID</h1>
+<div class="row">
+    <div>
+        <label>Gateway Base</label>
+        <input id="base" value="http://localhost:9094">
+    </div>
+    <div>
+        <label>Media ID</label>
+        <input id="mid" placeholder="be1b2ea0-977f-463c-a3b2-637f9bf8d3b1">
+    </div>
+</div>
+<label>Bearer Token</label>
+<input id="tok" placeholder="eyJhbGciOi..." />
+<button id="go">Fetch & View</button>
+
+<h2>Preview</h2>
+<div id="view"></div>
+
+<h2>Metadata</h2>
+<pre id="out">Ready.</pre>
+
+<script>
+    const $=id=>document.getElementById(id);
+    const show=v=>$('out').textContent=typeof v==='string'?v:JSON.stringify(v,null,2);
+
+    $('go').onclick=async ()=>{
+        const base=$('base').value.replace(/\/+$/,'');
+        const id=$('mid').value.trim();
+        const tok=$('tok').value.trim();
+        if(!id||!tok){ show('Provide media id and token'); return; }
+        try{
+            const res=await fetch(`${base}/media/${encodeURIComponent(id)}`,{
+                headers:{Authorization:'Bearer '+tok}
+            });
+            const text=await res.text();
+            let data; try{ data=JSON.parse(text); }catch(_){ data=text; }
+            show(data);
+            const v=$('view'); v.innerHTML='';
+            const url=data?.cdnUrl || null;
+            if(url){
+                if((data.mimeType||'').startsWith('video/')){
+                    const vid=document.createElement('video');
+                    vid.controls=true; vid.src=url;
+                    v.appendChild(vid);
+                }else{
+                    const img=document.createElement('img');
+                    img.src=url; v.appendChild(img);
+                }
+            }
+        }catch(e){ show(String(e)); }
+    };
+</script>

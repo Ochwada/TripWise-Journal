@@ -33,13 +33,13 @@
 <div class="grid">
     <div>
         <label for="mediaBase">Media Base URL</label>
-        <input id="mediaBase" type="text" value="http://localhost:9096" />
-        <div class="hint">Your Media service (init/confirm endpoints)</div>
+        <input id="mediaBase" type="text" value="" />
+        <div class="hint">Media service (init/confirm). Leave empty to use this page's origin.</div>
     </div>
     <div>
         <label for="journalBase">Journal Base URL</label>
-        <input id="journalBase" type="text" value="http://localhost:9094" />
-        <div class="hint">Your Journal service</div>
+        <input id="journalBase" type="text" value="" />
+        <div class="hint">Journal service. Leave empty to use this page's origin.</div>
     </div>
 </div>
 
@@ -91,6 +91,19 @@
     const $ = id => document.getElementById(id);
     const show = v => $('out').textContent = typeof v === 'string' ? v : JSON.stringify(v, null, 2);
 
+    // Default both base URLs to current origin (e.g., http://localhost:9094)
+    (function initDefaults() {
+        const origin = window.location.origin;          // e.g. http://localhost:9094
+        if (!document.getElementById('journalBase').value) {
+            document.getElementById('journalBase').value = origin;
+        }
+        if (!document.getElementById('mediaBase').value) {
+            document.getElementById('mediaBase').value = 'http://localhost:9096';
+        }
+    })();
+
+    const baseFor = (v) => (v && v.trim()) ? v.trim().replace(/\/+$/,'') : window.location.origin;
+
     function setProgress(pct) {
         $('bar').style.width = `${Math.max(0, Math.min(100, pct))}%`;
     }
@@ -114,9 +127,11 @@
     }
 
     async function uploadViaPresigned(token, mediaBase, journalId, file, onStep = ()=>{}) {
+        const base = baseFor(mediaBase);
+
         // 1) INIT
         onStep('init');
-        const initRes = await fetch(`${mediaBase}/media/init`, {
+        const initRes = await fetch(`${base}/media/init`, {
             method: 'POST',
             headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
             body: JSON.stringify({
@@ -134,7 +149,6 @@
         const putHeaders = new Headers(init.headers || {});
         if (!putHeaders.has('Content-Type') && file.type) putHeaders.set('Content-Type', file.type);
 
-        // Optional: track upload progress (fetch lacks native progress; using XHR for progress)
         await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open('PUT', init.uploadUrl);
@@ -161,7 +175,7 @@
         }
         const checksum = await sha256(file);
 
-        const confRes = await fetch(`${mediaBase}/media/confirm`, {
+        const confRes = await fetch(`${base}/media/confirm`, {
             method: 'POST',
             headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
             body: JSON.stringify({
@@ -195,7 +209,8 @@
     }
 
     async function createJournal(journalBase, token, payload) {
-        const res = await fetch(`${journalBase}/journals`, {
+        const jb = baseFor(journalBase);
+        const res = await fetch(`${jb}/journals`, {
             method:'POST',
             headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
             body: JSON.stringify(payload)
@@ -213,7 +228,6 @@
             const jId = $('journalId').value.trim();
             const files = $('files').files;
             if (!token) return show('Provide a Bearer token');
-            if (!mediaBase) return show('Provide Media base URL');
             if (!files || files.length === 0) return show('Choose at least one file');
             const ids = await uploadAll(token, mediaBase, jId || null, files);
             show({ mediaIds: ids });
@@ -227,15 +241,14 @@
             const journalBase = $('journalBase').value.trim();
             const files = $('files').files;
             if (!token) return show('Provide a Bearer token');
-            if (!mediaBase || !journalBase) return show('Provide base URLs');
             if (!files || files.length === 0) return show('Choose at least one file');
 
-            const jId = $('journalId').value.trim() || null; // optional existing journal to assert ownership
+            const jId = $('journalId').value.trim() || null;
 
-            // 1) Upload all media (bound either to an existing journalId or just owned by user for now)
+            // 1) Upload media
             const mediaIds = await uploadAll(token, mediaBase, jId, files);
 
-            // 2) Build create payload (if you’re creating a new journal now)
+            // 2) Create journal
             const payload = {
                 title: $('title').value.trim(),
                 description: $('description').value.trim() || null,
@@ -245,8 +258,6 @@
                 metadata: parseJsonOrNull($('metadata').value),
                 mediaIds
             };
-
-            // 3) Create journal
             const resp = await createJournal(journalBase, token, payload);
             show(resp);
         } catch (e) {
