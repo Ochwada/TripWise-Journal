@@ -64,6 +64,7 @@ public class JournalResponse {
      */
     private List<String> tags;
 
+
     private List<String> mediaIds; // or expand to Media summary DTOs
 
     /**

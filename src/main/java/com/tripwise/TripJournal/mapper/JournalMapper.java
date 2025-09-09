@@ -1,5 +1,6 @@
 package com.tripwise.TripJournal.mapper;
 
+import com.tripwise.TripJournal.dto.MetadataDTO;
 import com.tripwise.TripJournal.dto.requests.CreateJournalRequest;
 import com.tripwise.TripJournal.dto.requests.UpdateJournalRequest;
 import com.tripwise.TripJournal.dto.responses.JournalResponse;
@@ -7,9 +8,9 @@ import com.tripwise.TripJournal.model.Journal;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+
+import static org.springframework.data.mongodb.util.BsonUtils.asMap;
 
 /**
  * ================================================================
@@ -38,11 +39,82 @@ public final class JournalMapper {
                 .title(trimToNull(request.getTitle()))
                 .description(trimToNull(request.getDescription()))
                 .tags(copyToList(request.getTags()))
+                .metadata(request.getMetadata())
                 // metadata (gps + weather) is set by the service after persisting
                 .createdDate(now)
                 .modifiedDate(now)
                 .build();
     }
+
+    /* ---------- Metadata ---------- */
+    private static MetadataDTO mapMetadata(Map<String, Object> meta) {
+        if (meta == null || meta.isEmpty()) return null;
+
+        Map<String, Object> gpsMap = toMap(meta.get("gps"));
+        Map<String, Object> wxMap  = toMap(meta.get("weather"));
+
+        MetadataDTO.GpsDTO gps = null;
+        if (gpsMap != null) {
+            Double lat = getAsDouble(gpsMap, "lat");
+            if (lat == null) lat = getAsDouble(gpsMap, "latitude");   // your stored keys
+            Double lon = getAsDouble(gpsMap, "lon");
+            if (lon == null) lon = getAsDouble(gpsMap, "longitude");
+
+            if (lat != null || lon != null) {
+                gps = MetadataDTO.GpsDTO.builder().lat(lat).lon(lon).build();
+            }
+        }
+
+        MetadataDTO.WeatherDTO wx = null;
+        if (wxMap != null) {
+            wx = MetadataDTO.WeatherDTO.builder()
+                    .temperature(getAsDouble(wxMap, "temperature"))
+                    .description(getAsString(wxMap, "description"))
+                    .humidity(getAsInteger(wxMap, "humidity"))
+                    .windSpeed(getAsDouble(wxMap, "windSpeed"))
+                    .icon(getAsString(wxMap, "icon"))
+                    .build();
+        }
+
+        if (gps == null && wx == null) return null;
+        return MetadataDTO.builder().gps(gps).weather(wx).build();
+    }
+
+    private static Map<String, Object> toMap(Object o) {
+        return (o instanceof Map) ? (Map<String, Object>) o : null;
+    }
+    private static Double getAsDouble(Map<String, Object> m, String k) {
+        Object v = m.get(k);
+        if (v == null) return null;
+        if (v instanceof Double) return (Double) v;
+        if (v instanceof Float) return ((Float) v).doubleValue();
+        if (v instanceof Integer) return ((Integer) v).doubleValue();
+        if (v instanceof Long) return ((Long) v).doubleValue();
+        if (v instanceof String) try {
+            return Double.valueOf((String) v);
+        } catch (NumberFormatException ignore) {
+        }
+        return null;
+    }
+
+    private static String getAsString(Map<String, Object> m, String k) {
+        Object v = m.get(k);
+        return v == null ? null : String.valueOf(v);
+    }
+
+    private static Integer getAsInteger(Map<String, Object> m, String k) {
+        Object v = m.get(k);
+        if (v == null) return null;
+        if (v instanceof Integer) return (Integer) v;
+        if (v instanceof Long) return ((Long) v).intValue();
+        if (v instanceof Double) return ((Double) v).intValue();
+        if (v instanceof String) try {
+            return Integer.valueOf((String) v);
+        } catch (NumberFormatException ignore) {
+        }
+        return null;
+    }
+
 
     /* ---------- UPDATE (PATCH) ---------- */
 
@@ -67,11 +139,16 @@ public final class JournalMapper {
         }
 
         if (request.getCity() != null) {
-            String newCountry = trimToNull(request.getCity());
-
+            String newCity = trimToNull(request.getCity());
+            if (!Objects.equals(newCity, targetJournal.getCity())) {
+                targetJournal.setCity(newCity);
+                locationChanged = true;
+            }
+        }
+        if (request.getCountry() != null) {
+            String newCountry = trimToNull(request.getCountry());
             if (!Objects.equals(newCountry, targetJournal.getCountry())) {
                 targetJournal.setCountry(newCountry);
-
                 locationChanged = true;
             }
         }
@@ -94,8 +171,8 @@ public final class JournalMapper {
                 .title(journal.getTitle())
                 .description(journal.getDescription())
                 .tags(journal.getTags())
-                //.metadata(me)
-                //.metadata(journal.getMetadata())
+                .mediaIds(journal.getMediaIds())
+                .metadata(mapMetadata(journal.getMetadata()))
                 .createdDate(journal.getCreatedDate())
                 .modifiedDate(journal.getModifiedDate())
                 .build();

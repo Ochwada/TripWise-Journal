@@ -76,6 +76,9 @@ public class Journal {
      */
     private Map<String, Object> metadata;
 
+
+    private List<String>  mediaIds;
+
     /**
      * The timestamp when this journal entry was created.
      */

@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>Update Journal</title>
+    <title>Update / Patch Journal</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
         body { font-family: system-ui,-apple-system,Segoe UI,Roboto; margin:2rem auto; max-width: 900px; padding:0 1rem; }
         label { font-weight:600; display:block; margin:.6rem 0 .25rem; }
-        input, textarea { width:100%; padding:.6rem .7rem; border:1px solid #e5e7eb; border-radius:8px; }
+        input, textarea, select { width:100%; padding:.6rem .7rem; border:1px solid #e5e7eb; border-radius:8px; }
         textarea { min-height: 160px; }
         button { margin-top:1rem; padding:.7rem 1rem; border:0; border-radius:9px; background:#0f62fe; color:#fff; font-weight:700; cursor:pointer; }
         pre { background:#0b1020; color:#d8e5ff; padding:1rem; border-radius:8px; overflow:auto; }
@@ -15,7 +15,7 @@
 </head>
 <body>
 <p><a href="/static">&larr; Back</a></p>
-<h1>Update Journal <small style="color:#666">PUT /journals/{id}</small></h1>
+<h1>Update Journal <small style="color:#666">PUT or PATCH /journals/{id}</small></h1>
 
 <label for="token">Bearer token</label>
 <input id="token" type="text" placeholder="eyJhbGciOi..." />
@@ -23,18 +23,22 @@
 <label for="id">Journal ID</label>
 <input id="id" type="text" placeholder="journal-123" />
 
+<label for="method">HTTP Method</label>
+<select id="method">
+    <option value="PUT">PUT (replace)</option>
+    <option value="PATCH">PATCH (partial update)</option>
+</select>
+
 <label for="body">Update JSON</label>
 <textarea id="body">{
-  "itineraryId": "trip-123",
-  "city": "Nairobi",
+  "title": "Fishing in Lake Victoria",
+  "description": "Morning fishing trip with friends",
+  "city": "Kisumu",
   "country": "Kenya",
-  "title": "Hiking in Aberdare Forest (updated)",
-  "description": "New details",
-  "tags": ["hiking","nature"],
-  "metadata": {"mood":"tired","gps":{"lat":-1.3,"lng"git sta:36.8}}
+  "tags": ["fishing","lake","fun"]
 }</textarea>
 
-<button id="go">Update</button>
+<button id="go">Send Request</button>
 
 <h2>Response</h2>
 <pre id="out"></pre>
@@ -47,13 +51,15 @@
     $('go').addEventListener('click', async () => {
         const token = $('token').value.trim();
         const id = $('id').value.trim();
+        const method = $('method').value;
         if (!id) return show('Provide an ID');
         let payload;
         try { payload = JSON.parse($('body').value || '{}'); }
         catch(e){ return show('Invalid JSON: '+e.message); }
+
         try {
             const res = await fetch(API + `/journals/${encodeURIComponent(id)}`, {
-                method:'PUT',
+                method,
                 headers: {'Content-Type':'application/json', ...(token && {'Authorization':'Bearer '+token})},
                 body: JSON.stringify(payload)
             });

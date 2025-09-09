@@ -20,7 +20,6 @@ import org.springframework.stereotype.Service;
 public class MetadataService {
     private final WeatherClient weatherClient;
 
-
     /**
      * Builds a metadata object containing geocoded coordinates and current weather for the specified location.
      *
