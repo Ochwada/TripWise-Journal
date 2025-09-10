@@ -1,11 +1,11 @@
 package com.tripwise.TripJournal.dto.responses;
 
+import com.tripwise.TripJournal.dto.MediaSummary;
 import com.tripwise.TripJournal.dto.MetadataDTO;
 import lombok.*;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 
 /**
  * ================================================================
@@ -34,17 +34,6 @@ public class JournalResponse {
      */
     private String itineraryId;
 
-
-    /**
-     * The city where the activity took place.
-     */
-    private String city;
-
-    /**
-     * The country where the activity took place.
-     */
-    private String country;
-
     /**
      * The title of the activity recorded in this journal entry.
      * Example: {@code "Hiking in Aberdare Forest"}
@@ -59,13 +48,24 @@ public class JournalResponse {
 
 
     /**
+     * The city where the activity took place.
+     */
+    private String city;
+
+    /**
+     * The country where the activity took place.
+     */
+    private String country;
+
+    //private String coverMediaId;
+
+    private List<String> mediaIds;
+
+    /**
      * A list of tags associated with this journal entry for easier categorization or search.
      * Example: {@code ["hiking", "nature", "adventure"]}
      */
     private List<String> tags;
-
-
-    private List<String> mediaIds; // or expand to Media summary DTOs
 
     /**
      * Arbitrary key-value pairs that provide additional context or details about this journal entry.
@@ -73,7 +73,7 @@ public class JournalResponse {
      * -This field is flexible and can store extra information such as weather, mood, GPS coordinates, or any custom
      * metadata provided by the user or system.
      */
-    private MetadataDTO metadata;  // read-only, auto-fetched
+    private MetadataDTO metadata;
 
     /**
      * The timestamp when this journal entry was created.
@@ -84,6 +84,9 @@ public class JournalResponse {
      * The timestamp when this journal entry was last modified.
      */
     private Instant modifiedDate;
+
+    //private List<MediaSummary> media;
+    //private MediaSummary coverMedia;
 
 
 }

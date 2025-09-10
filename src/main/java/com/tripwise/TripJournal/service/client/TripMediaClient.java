@@ -1,9 +1,15 @@
 package com.tripwise.TripJournal.service.client;
 
+import com.tripwise.TripJournal.dto.MediaSummary;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.*;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import java.util.*;
 
 /**
  * ================================================================
@@ -42,7 +48,13 @@ public class TripMediaClient {
     /** Base URL of the tripmedia service (Docker network hostname + port). */
     private final RestTemplate restTemplate;
 
+    private final WebClient webClient;
+
     private static final String BASE = "http://tripmedia:9096";
+
+    @Value("${tripmedia.base-url:https://tripmedia:9096}")
+    private String mediaBase;
+
 
     /**
      * Request thumbnail generation for the given journal.
@@ -73,6 +85,27 @@ public class TripMediaClient {
      */
     public void deleteAssets(String journalId) {
         restTemplate.delete(BASE + "/media/delete?journalId=" + journalId);
+    }
+
+    public List<MediaSummary> batch(String bearerToken, List<String> ids) {
+        if (ids == null || ids.isEmpty()) return Collections.emptyList();
+        try {
+            return webClient.post()
+                    .uri(mediaBase + "/media/batch")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .headers(h -> h.setBearerAuth(extractToken(bearerToken)))
+                    .bodyValue(ids)
+                    .retrieve()
+                    .bodyToFlux(MediaSummary.class)
+                    .collectList()
+                    .block();
+        } catch (Exception e) {
+            return Collections.emptyList(); // fail-soft on expansion
+        }
+    }
+
+    private String extractToken(String bearer) {
+        return bearer != null && bearer.startsWith("Bearer ") ? bearer.substring(7) : bearer;
     }
 
 }

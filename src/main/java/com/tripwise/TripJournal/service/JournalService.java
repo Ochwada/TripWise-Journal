@@ -80,16 +80,18 @@ public class JournalService {
         Map<String, Object> auto = helpers.tryAutoMetadata(req.getCity(), req.getCountry());
         Map<String, Object> merged = enricher.mergeMetadata(auto, req.getMetadata());
 
+
 //        Map<String, Object> auto   = enricher.buildAutoMetadata(req.getCity(), req.getCountry());
 //        Map<String, Object> merged = enricher.mergeMetadata(auto, req.getMetadata());
 
         Journal journal = Journal.builder()
                 .userId(userId)
                 .itineraryId(req.getItineraryId())
-                .city(req.getCity())
-                .country(req.getCountry())
                 .title(req.getTitle())
                 .description(req.getDescription())
+                .city(req.getCity())
+                .country(req.getCountry())
+                .mediaIds(enricher.safeCopy(req.getMediaIds()))
                 .tags(enricher.safeCopy(req.getTags()))
                 .metadata(merged.isEmpty() ? null : merged)
                 .createdDate(Instant.now())
@@ -114,7 +116,7 @@ public class JournalService {
 
         boolean locationChanged =
                 !Objects.equals(existing.getCity(), req.getCity()) ||
-                        !Objects.equals(existing.getCountry(), req.getCountry());
+                !Objects.equals(existing.getCountry(), req.getCountry());
 
         Map<String, Object> baseAuto = locationChanged
                 ? helpers.tryAutoMetadata(req.getCity(), req.getCountry())
@@ -123,7 +125,14 @@ public class JournalService {
         Map<String, Object> merged = enricher.mergeMetadata(baseAuto, req.getMetadata());
         boolean titleChanged = !Objects.equals(existing.getTitle(), req.getTitle());
 
-        existing.setItineraryId(req.getItineraryId());
+        // Compare list fields defensively (null-safe)
+        boolean coverChanged = req.getCoverMediaId() != null
+                && !Objects.equals(existing.getCoverMediaId(), req.getCoverMediaId());
+
+        boolean mediaChanged = req.getMediaIds() != null
+                && !Objects.equals(existing.getMediaIds(), req.getMediaIds());
+
+        /**existing.setItineraryId(req.getItineraryId());
         existing.setCity(req.getCity());
         existing.setCountry(req.getCountry());
         existing.setTitle(req.getTitle());
@@ -138,7 +147,36 @@ public class JournalService {
             helpers.safeCall(() -> tripMediaClient.refreshAssets(saved.getId()));
         }
 
+        return mapper.toResponse(saved);*/
+        // Scalar updates
+        if (req.getItineraryId() != null) existing.setItineraryId(req.getItineraryId());
+        if (req.getCity() != null)        existing.setCity(req.getCity());
+        if (req.getCountry() != null)     existing.setCountry(req.getCountry());
+        if (req.getTitle() != null)       existing.setTitle(req.getTitle());
+        if (req.getDescription() != null) existing.setDescription(req.getDescription());
+
+        // List updates (null-safe copies only when provided)
+        //if (req.getCoverMediaId() != null) existing.setCoverMediaId(nonNullCopy(req.getCoverMediaId()));
+
+        if (req.getMediaIds() != null)     existing.setMediaIds(enricher.safeCopy(req.getMediaIds()));
+        if (req.getTags() != null)         existing.setTags(enricher.safeCopy(req.getTags()));
+
+        // Metadata (keep null when empty)
+        if (req.getMetadata() != null || locationChanged) {
+            existing.setMetadata(merged.isEmpty() ? null : merged);
+        }
+
+        existing.setModifiedDate(Instant.now());
+
+        Journal saved = repository.save(existing);
+
+        // If location/title/cover/media changed, refresh derived media
+        if (locationChanged || titleChanged || coverChanged || mediaChanged) {
+            helpers.safeCall(() -> tripMediaClient.refreshAssets(saved.getId()));
+        }
+
         return mapper.toResponse(saved);
+
     }
 
     private Journal getJournalEntity(String userId, String id) {

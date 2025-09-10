@@ -62,11 +62,23 @@ public class Journal {
      */
     private String description;
 
+    // -------------- Media  ------------------------------------
+
+    // The cover image/video (media ID from TripMedia)
+    //private String coverMediaId;
+
+    //private List<String>  mediaIds;
+    @Builder.Default
+    private List<String> mediaIds = new ArrayList<>();
+
+    // --------------optional tags & metadata ------------------------------------
+
     /**
      * A list of tags associated with this journal entry for easier categorization or search.
      * Example: {@code ["hiking", "nature", "adventure"]}
      */
-    private List<String> tags;
+    @Builder.Default
+    private List<String> tags = new ArrayList<>();
 
     /**
      * Arbitrary key-value pairs that provide additional context or details about this journal entry.
@@ -75,9 +87,6 @@ public class Journal {
      * metadata provided by the user or system.
      */
     private Map<String, Object> metadata;
-
-
-    private List<String>  mediaIds;
 
     /**
      * The timestamp when this journal entry was created.

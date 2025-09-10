@@ -53,6 +53,8 @@ public class CreateJournalRequest {
      */
     private String country;
 
+
+
     /**
      * A list of tags associated with the journal entry.
      * Example: {@code ["hiking", "nature", "adventure"]}
@@ -68,6 +70,8 @@ public class CreateJournalRequest {
      * </ul>
      */
     private Map<String, Object> metadata;
+
+    private String coverMediaId;
 
     /**
      * List of media items (from media-service) attached to this journal entry.

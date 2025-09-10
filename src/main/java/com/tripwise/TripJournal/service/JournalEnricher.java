@@ -101,10 +101,21 @@ public class JournalEnricher {
         return (list == null) ? null : new ArrayList<>(list);
     }
 
+    private static <T> List<T> nz(List<T> v) {
+        return v == null ? new ArrayList<>() : new ArrayList<>(v);
+    }
+
+    public static String firstOrNull(List<String> v) {
+        return (v != null && !v.isEmpty()) ? v.get(0) : null;
+    }
+
+
     /** Case-insensitive "contains" regex for search. */
     public String containsRegex(String term) {
 
         if (term == null || term.isBlank()) return ".*";
         return ".*" + java.util.regex.Pattern.quote(term.trim()) + ".*";
     }
+
+
 }

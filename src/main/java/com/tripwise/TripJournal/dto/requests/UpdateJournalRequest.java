@@ -30,14 +30,16 @@ public class UpdateJournalRequest {
     @Schema(example = "A full-day hike exploring waterfalls and wildlife.")
     private String description;
 
-    @Schema(description = "Itinerary identifier this journal belongs to", example = "TRIP-789")
+    @Schema(description = "Itinerary identifier this journal belongs to", example = "12")
     private String itineraryId;
 
-    @Schema(example = "Kisumu")
+    @Schema(example = "Berlin")
     private String city;
 
-    @Schema(example = "Kenya")
+    @Schema(example = "Germany")
     private String country;
+
+    private String coverMediaId;
 
     @Schema(example = "[\"hiking\",\"nature\",\"adventure\"]")
     private List<@Size(max = 40, message = "Tag must be at most 40 characters") String> tags;
